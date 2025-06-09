@@ -124,14 +124,15 @@ def build_only_allowed_filter_for_link_data(
 ) -> Callable[[RSSEntity], bool]:
     return lambda link_data: link_data.type in allowed_types
 
-
 def build_only_new_entities(
-    to_name_function: Callable[[RSSEntity], str]
-) -> Callable[[str, List[RSSEntity]], Generator[RSSEntity, None, None]]:
-    return lambda from_file, raw_rss_entries: takewhile(
-        lambda rss_entity: to_name_function(rss_entity) != from_file, raw_rss_entries
+    to_name_function: Callable[[RSSEntity], str],
+    from_file: str,
+    raw_rss_entries: List[RSSEntity]
+) -> Generator[RSSEntity, None, None]:
+    return takewhile(
+        lambda rss_entity: to_name_function(rss_entity) != from_file,
+        raw_rss_entries
     )
-
 
 def only_last_n_entities(
     n: int, raw_rss_entries: Iterator[RSSEntity]
