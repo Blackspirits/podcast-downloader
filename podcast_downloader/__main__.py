@@ -5,6 +5,7 @@ import argparse
 import re
 import time
 import sys
+import logging # import the logging module
 
 from functools import partial
 from . import configuration
@@ -36,6 +37,13 @@ from .rss import (
     only_last_n_entities,
 )
 
+# Global definition of the logger
+logger = logging.getLogger("podcast_downloader")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler(stream=sys.stdout)
+    handler.setFormatter(ConsoleOutputFormatter())
+    logger.addHandler(handler)
 
 def download_rss_entity_to_path(
     headers: List[Tuple[str, str]],
@@ -193,13 +201,17 @@ def load_the_last_run_date_store_now(marker_file_path, now):
 
 if __name__ == "__main__":
     import sys
-    from logging import getLogger, StreamHandler, INFO
-
-    logger = getLogger(__name__)
+    import logging
+    from logging import StreamHandler, INFO
+    from .utils import ConsoleOutputFormatter
+    
+    logger = logging.getLogger("podcast_downloader")
     logger.setLevel(INFO)
-    stdout_handler = StreamHandler(stream=sys.stdout)
-    stdout_handler.setFormatter(ConsoleOutputFormatter())
-    logger.addHandler(stdout_handler)
+    
+    if not logger.handlers:
+        stdout_handler = StreamHandler(stream=sys.stdout)
+        stdout_handler.setFormatter(ConsoleOutputFormatter())
+        logger.addHandler(stdout_handler)
 
     DEFAULT_CONFIGURATION = {
         configuration.CONFIG_DOWNLOADS_LIMIT: sys.maxsize,
