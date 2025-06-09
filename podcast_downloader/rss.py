@@ -144,5 +144,6 @@ def is_entity_newer(from_date: time.struct_time, entity: RSSEntity) -> bool:
     return entity.published_date[:3] >= from_date[:3]
 
 
-def only_entities_from_date(from_date: time.struct_time) -> Callable[[RSSEntity], bool]:
-    return partial(filter, partial(is_entity_newer, from_date))
+def only_entities_from_date(from_date: time.struct_time, raw_rss_entries: Iterator[RSSEntity]) -> Iterator[RSSEntity]:
+    return filter(lambda entity: is_entity_newer(from_date, entity), raw_rss_entries)
+
