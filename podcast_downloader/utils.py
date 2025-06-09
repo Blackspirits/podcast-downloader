@@ -68,8 +68,8 @@ class ConsoleOutputFormatter(logging.Formatter):
         super().__init__(fmt="{message}", datefmt="%Y-%m-%d %H:%M:%S", style='{')
 
     def format(self, record: logging.LogRecord) -> str:
-    timestamp = self.formatTime(record, self.datefmt)
-    message = record.getMessage()
+        timestamp = self.formatTime(record, self.datefmt)
+        message = record.getMessage()
 
     # Handle the "Loading configuration" line as a special case
     if record.msg.startswith('Loading configuration from file:'):
