@@ -69,7 +69,7 @@ class ConsoleOutputFormatter(logging.Formatter):
             podcast_name, url, filename = record.args
             formatted_message = (
                 f"{self.ROSEWATER}\"{podcast_name}\"{self.RESET}: "
-                f"{self.CYAN}Downloading file: {self.RESET}" # Using CYAN for the action text
+                f"{self.BLUE}Downloading file: {self.RESET}" # Using CYAN for the action text
                 f"{self.SKY}\"{url}\"{self.RESET} "
                 f"{self.LAVENDER}saved as{self.RESET} "
                 f"{self.ROSEWATER}\"{filename}\"{self.RESET}"
