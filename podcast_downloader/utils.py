@@ -28,7 +28,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     MAROON = "\033[38;2;235;160;172m"
     SKY = "\033[38;2;137;220;235m"      # Links/URLs
     PINK = "\033[38;2;245;194;231m"
-    PEACH = "\033[38;2;243;139;168m
+    PEACH = "\033[38;2;243;139;168m"
     BASE = "\033[38;2;30;30;46m"         # Background
     TEXT = "\033[38;2;205;214;244m"       # Foreground text
     SURFACE0 = "\033[38;2;49;50;68m"     # A darker surface color
