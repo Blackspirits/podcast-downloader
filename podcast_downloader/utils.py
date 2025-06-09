@@ -22,35 +22,38 @@ class ConsoleOutputFormatter(Formatter):
     }
 
     def __init__(self) -> None:
-        """Initializes the formatter."""
-        # It's crucial to pass a format string containing `%(asctime)s` to the
-        # parent constructor. This ensures the formatter's `usesTime()` method
-        # returns True, which correctly sets up the internal time-handling
-        # machinery and prevents the ValueError. We override the final output
-        # in our custom `format()` method, so this `fmt` is not directly used.
+        """
+        Initializes the formatter.
+        
+        The key to fixing the ValueError is to pass a `fmt` string to the parent
+        constructor that includes `%(asctime)s`. This ensures the base formatter's
+        `usesTime()` method returns True, which correctly sets up the internal
+        time-handling machinery. Our custom `format()` method below will still
+        override the final output, but this step is crucial for initialization.
+        """
         super().__init__(
-            fmt="%(asctime)s %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            fmt="%(asctime)s | %(message)s",  # This `fmt` enables the time machinery.
+            datefmt="%Y-%m-%d %H:%M:%S"       # This is the date format we will use.
         )
 
     def format(self, record: LogRecord) -> str:
         """
-        Formats the log record with appropriate colors.
+        Formats the log record with appropriate colors, overriding the default.
         """
         # 1. Get the color for the specific log level.
         level_color = self.COLORS.get(record.levelno, self.RESET)
 
-        # 2. Format the timestamp using the parent class's logic.
+        # 2. Format the timestamp using the parent class's logic and our datefmt.
         timestamp = self.formatTime(record, self.datefmt)
 
-        # 3. Get the formatted log message itself.
+        # 3. Get the final formatted log message from the record.
         message = record.getMessage()
         
-        # 4. Handle exceptions if they exist.
+        # 4. Append exception information if it exists.
         if record.exc_info:
             message += "\n" + self.formatException(record.exc_info)
 
-        # 5. Manually construct the final colored string.
+        # 5. Manually construct the final colored string with our desired layout.
         return (
             f"[{self.DATE_COLOR}{timestamp}{self.RESET}] "
             f"{level_color}{message}{self.RESET}"
