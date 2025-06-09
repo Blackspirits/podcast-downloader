@@ -64,24 +64,27 @@ def sanitize_for_filename(value: str) -> str:
 
 def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
     """
-    Generates a filename from a template string and an RSSEntity.
+    Gera um nome de ficheiro a partir de um template e de uma entidade RSS.
 
-    Supports placeholders:
-    - %title%: The sanitized title of the episode.
-    - %file_name%: The original filename from the URL, without extension.
-    - %file_extension%: The file extension from the URL.
-    - %publish_date%: The publication date (YYYYMMDD format).
-    - %publish_date:FORMAT%: The publication date with a custom format (e.g., %publish_date:%Y-%m-%d%).
+    Suporta os seguintes placeholders:
+    - %title%: Título do episódio (sanitizado).
+    - %file_name%: Nome original do ficheiro sem extensão.
+    - %file_extension%: Extensão do ficheiro (ex: mp3).
+    - %publish_date%: Data de publicação no formato AAAAMMDD.
+    - [%publish_date:FORMATO%]: Data de publicação com formatação customizada.
     """
-    # 1. Handle custom date formats first using a robust regex replacement.
-    def date_replacer(match: re.Match) -> str:
-        """Called by re.sub for each custom date token."""
+
+    # 1. Substituir [%publish_date:FORMATO%] usando regex
+    def date_format_matcher(match: re.Match) -> str:
         format_str = match.group(1)
-        return entity.published_date.strftime(format_str)
+        try:
+            return entity.published_date.strftime(format_str)
+        except Exception:
+            return "invalid_date"
 
-    name_template = re.sub(r"%publish_date:([^%]+)%", date_replacer, name_template)
+    name_template = re.sub(r"\[%publish_date:([^%\]]+)%\]", date_format_matcher, name_template)
 
-    # 2. Handle simple, fixed-format placeholders.
+    # 2. Substituições padrão
     replacements = {
         "%title%": sanitize_for_filename(entity.title),
         "%file_name%": link_to_file_name(entity.link),
@@ -91,7 +94,7 @@ def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
 
     for token, value in replacements.items():
         name_template = name_template.replace(token, value)
-        
+
     return name_template.strip()
 
 
