@@ -1,4 +1,4 @@
-# podcast_downloader/utils.py (Final Corrected Version)
+# podcast_downloader/utils.py (with Catppuccin Mocha Colors)
 
 import logging
 from functools import reduce
@@ -6,20 +6,32 @@ from typing import Callable, Any
 
 class ConsoleOutputFormatter(logging.Formatter):
     """
-    A custom logging formatter that adds color to terminal output.
+    A custom logging formatter that adds Catppuccin Mocha colors to the terminal output.
     """
-    DATE_COLOR = "\033[2m"
+    # Using TrueColor (24-bit) codes for maximum color fidelity
+    # Format: \033[38;2;R;G;Bm
     RESET = "\033[0m"
+
+    # Catppuccin Mocha palette colors
+    # https://github.com/catppuccin/catppuccin
     COLORS = {
-        logging.DEBUG: "\033[38;5;245m",
-        logging.INFO: "\033[38;5;67m",
-        logging.WARNING: "\033[38;5;215m",
-        logging.ERROR: "\033[38;5;168m",
+        # DEBUG: Subtext0 (#a6adc8)
+        logging.DEBUG: "\033[38;2;166;173;200m",
+        # INFO: Sapphire (#74c7ec)
+        logging.INFO: "\033[38;2;116;199;236m",
+        # WARNING: Peach (#fab387)
+        logging.WARNING: "\033[38;2;250;179;135m",
+        # ERROR: Red (#f38ba8)
+        logging.ERROR: "\033[38;2;243;139;168m",
     }
+    
+    # DATE_COLOR: Overlay0 (#6c7086)
+    DATE_COLOR = "\033[38;2;108;112;134m"
+
 
     def __init__(self) -> None:
         """
-        Initializes the formatter using modern '{'-style formatting.
+        Initializes the formatter using '{'-style formatting.
         """
         super().__init__(
             fmt="{message}",
@@ -29,19 +41,15 @@ class ConsoleOutputFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """
-        Formats the log record with appropriate colors.
+        Formats the log record with the appropriate colors.
         """
         level_color = self.COLORS.get(record.levelno, self.RESET)
         timestamp = self.formatTime(record, self.datefmt)
 
-        # --- THIS IS THE FINAL FIX ---
-        # Instead of calling record.getMessage(), which uses old %-style formatting,
-        # we format the message ourselves using the modern {}-style.
         if record.args:
             message = record.msg.format(*record.args)
         else:
             message = record.msg
-        # --- END OF FIX ---
 
         if record.exc_info:
             message += "\n" + self.formatException(record.exc_info)
