@@ -278,7 +278,7 @@ def main():
             logger.info('Last downloaded file: "{}"', last_downloaded_file or "<none>")
 
             if not missing_files_links:
-                logger.info("{}: Nothing new to download.", rss_source_name)
+                logger.info("{}: Nothing new.", rss_source_name)
                 continue
             
             download_podcast = partial(download_rss_entity_to_path, rss_https_header, to_real_podcast_file_name, rss_source_path)
