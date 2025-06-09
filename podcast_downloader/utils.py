@@ -37,11 +37,13 @@ class ConsoleOutputFormatter(logging.Formatter):
 
     # General rules for simple log messages
     KEYWORD_RULES: List[Tuple[str, str]] = [
-        (r'(Checking)', BLUE),
-        (r'(Last downloaded file:)', BLUE),
+        (r'(Checking)', CYAN),
+        (r'(Last downloaded file:)', CYAN),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
         (r'(Nothing new to download\.)', MAUVE),
+        (r'(Downloading new episode of:\.)', MAUVE),
+        (r'(-> Saved as:)', MAUVE),
     ]
 
     def __init__(self) -> None:
@@ -65,15 +67,15 @@ class ConsoleOutputFormatter(logging.Formatter):
         # Handle the "Downloading file" line as another special case
         elif record.msg.startswith('Downloading new episode of: {}'):
             podcast_name, = record.args
-            formatted_message = f"{self.BLUE}Downloading new episode of:{self.RESET} {self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
+            formatted_message = f"{self.CYAN}Downloading new episode of: {self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
         
         elif record.msg.startswith('  -> Source URL:'):
             url, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+            formatted_message = f"  {self.LAVENDER}-> Source URL: {self.RESET}{self.SKY}\"{url}\"{self.RESET}"
 
         elif record.msg.startswith('  -> Saved as:'):
             filename, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Saved as:{self.RESET} {self.ROSEWATER}\"{filename}\"{self.RESET}"
+            formatted_message = f"  {self.LAVENDER}-> Saved as: {self.RESET}{self.ROSEWATER}\"{filename}\"{self.RESET}"
 
         else:
             # For all other messages, use the general keyword rules
@@ -91,9 +93,9 @@ class ConsoleOutputFormatter(logging.Formatter):
             formatted_message += "\n" + self.formatException(record.exc_info)
 
         return (
-            f"{self.BRIGHT_BLACK}[{self.RESET}"
+            f"{self.OVERLAY2}[{self.RESET}"
             f"{self.WHITE}{timestamp}{self.RESET}"
-            f"{self.BRIGHT_BLACK}]{self.RESET} "
+            f"{self.OVERLAY2}]{self.RESET} "
             f"{formatted_message}"
         )
 
