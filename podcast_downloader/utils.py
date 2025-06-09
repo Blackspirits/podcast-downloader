@@ -37,6 +37,8 @@ class ConsoleOutputFormatter(logging.Formatter):
     OVERLAY1 = "\033[38;2;127;132;156m"
     OVERLAY2 = "\033[38;2;147;153;178m"
     PEACH = "\033[38;2;255;180;128m"
+    SAPPHIRE = "\033[38;2;116;199;236m"
+    TEAL = "\033[38;2;152;211;190m" 
 
     # Dictionary mapping log levels to color constants
     LEVEL_COLORS = {
@@ -53,7 +55,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Loading configuration from file:)', BLUE),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
-        (r'(Nothing new to download\.)', MAUVE),
+        (r'(Nothing new\.)', MAUVE),
         (r'(Saved as)', LAVENDER),
         (r'(Downloading new episode of:)', GREEN),
         
@@ -77,6 +79,7 @@ class ConsoleOutputFormatter(logging.Formatter):
                 lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
                 message
             )
+            
         # Handle the "Downloading file" line as another special case
         elif record.msg.startswith('Downloading new episode of: {}'):
             podcast_name, = record.args
@@ -86,10 +89,13 @@ class ConsoleOutputFormatter(logging.Formatter):
             url = record.args[0]
             return f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
 
-
         elif record.msg.startswith('    -> Saved as:'):
             filename, = record.args
-            formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.TEXT}\"{filename}\"{self.RESET}"
+            formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.TEAL}\"{filename}\"{self.RESET}"
+
+        elif record.msg.startswith('Last downloaded file:'):
+            filename, = record.args
+            formatted_message = f"{self.BLUE}Last downloaded file: {self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
 
         else:
             # For all other messages, use the general keyword rules
