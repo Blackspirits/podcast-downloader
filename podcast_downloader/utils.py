@@ -7,25 +7,26 @@ from typing import Callable, Any, List, Tuple
 
 class ConsoleOutputFormatter(logging.Formatter):
     """
-    An advanced logging formatter that uses regular expressions
-    to apply Catppuccin Mocha colors.
+    An advanced logging formatter that uses regular expressions and special cases
+    to apply Catppuccin Mocha colors to log messages.
     """
     # Using TrueColor (24-bit) codes for maximum color fidelity
     RESET = "\033[0m"
 
     # --- Catppuccin Mocha Palette (from user's JSON scheme) ---
     # https://github.com/catppuccin/catppuccin
-    RED = "\033[38;2;243;139;168m"      # #F38BA8
-    GREEN = "\033[38;2;166;227;161m"    # #A6E3A1
-    YELLOW = "\033[38;2;249;226;175m"  # #F9E2AF
-    BLUE = "\033[38;2;137;180;250m"     # #89B4FA
-    CYAN = "\033[38;2;148;226;213m"     # #94E2D5
-    WHITE = "\033[38;2;186;194;222m"    # #BAC2DE (Subtext1, for Timestamp text)
-    BRIGHT_BLACK = "\033[38;2;88;91;112m" # #585B70 (for DEBUG and Timestamp brackets)
-    ROSEWATER = "\033[38;2;245;224;220m" # #f5e0dc (for quoted text)
-    PINK = "\033[38;2;245;194;231m"     # #f5c2e7 (for config path)
-    MAUVE = "\033[38;2;203;166;247m"    # #cba6f7 (for 'Nothing new')
-    LAVENDER = "\033[38;2;180;190;254m" # #b4befe (for 'Downloading file')
+    RED = "\033[38;2;243;139;168m"      # Error
+    GREEN = "\033[38;2;166;227;161m"    # Success
+    YELLOW = "\033[38;2;249;226;175m"  # Warning
+    BLUE = "\033[38;2;137;180;250m"     # Default INFO
+    CYAN = "\033[38;2;148;226;213m"     # Actions
+    WHITE = "\033[38;2;186;194;222m"    # Timestamp text
+    BRIGHT_BLACK = "\033[38;2;88;91;112m" # DEBUG text & Timestamp brackets
+    ROSEWATER = "\033[38;2;245;224;220m" # Quoted Filenames
+    PINK = "\033[38;2;245;194;231m"     # Config Path
+    MAUVE = "\033[38;2;203;166;247m"    # 'Nothing new' message
+    LAVENDER = "\033[38;2;180;190;254m" # "saved as" text
+    SKY = "\033[38;2;137;220;235m"      # Links/URLs
 
     # Dictionary mapping log levels to the new color constants
     LEVEL_COLORS = {
@@ -37,11 +38,10 @@ class ConsoleOutputFormatter(logging.Formatter):
 
      # General rules for keyword coloring
     KEYWORD_RULES: List[Tuple[str, str]] = [
-        (r'(Loading configuration from file:|Checking|Last considered downloaded file:|Downloading file:| as)', CYAN),
+        (r'(Checking|Last considered downloaded file:)', CYAN)
         (r'(".*?")', ROSEWATER), # General rule for text in quotes
         (r'(Finished\.)', GREEN),
         (r'(Nothing new to download\.)', MAUVE),
-        (r'(Downloading file:| as )', LAVENDER),
     ]
 
     def __init__(self) -> None:
@@ -49,24 +49,33 @@ class ConsoleOutputFormatter(logging.Formatter):
         super().__init__(fmt="{message}", datefmt="%Y-%m-%d %H:%M:%S", style='{')
 
     def format(self, record: logging.LogRecord) -> str:
-        """Formats the log record by applying keyword-based coloring rules."""
+        """Formats the log record by applying special-case and keyword-based coloring rules."""
         timestamp = self.formatTime(record, self.datefmt)
+        message = record.msg.format(*record.args) if record.args else record.msg
 
         if record.args:
             message = record.msg.format(*record.args)
         else:
             message = record.msg
         
-        # --- NEW LOGIC FOR SPECIAL CASES ---
-        # Handle the specific "Loading configuration" line first
-        if 'Loading configuration from file:' in message:
-            # This regex captures the text part and the path part separately
+         # Handle the "Loading configuration" line
+        if record.msg.startswith('Loading configuration from file:'):
             pattern = r'(Loading configuration from file: )(".*?")'
-            # Rebuild the string, coloring each part differently
             formatted_message = re.sub(
                 pattern,
                 lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
                 message
+            )
+        # Handle the "Downloading file" line
+        elif record.msg.startswith('{}: Downloading file:'):
+            # Corrected to match the log message in your final __main__.py
+            podcast_name, url, filename = record.args
+            formatted_message = (
+                f"{self.ROSEWATER}\"{podcast_name}\"{self.RESET}: "
+                f"{self.CYAN}Downloading file: {self.RESET}"
+                f"{self.SKY}\"{url}\"{self.RESET} "
+                f"{self.LAVENDER}saved as{self.RESET} "
+                f"{self.ROSEWATER}\"{filename}\"{self.RESET}"
             )
         else:
             # For all other messages, use the general rules
@@ -74,20 +83,19 @@ class ConsoleOutputFormatter(logging.Formatter):
             formatted_message = f"{default_color}{message}{self.RESET}"
             
             for pattern, color in self.KEYWORD_RULES:
-                formatted_message = re.sub(
+                 formatted_message = re.sub(
                     pattern,
                     lambda m: f"{color}{m.group(1)}{default_color}",
                     formatted_message
                 )
-        # --- END OF NEW LOGIC ---
 
         if record.exc_info:
             formatted_message += "\n" + self.formatException(record.exc_info)
 
         return (
-            f"{self.BRIGHT_BLACK}[{self.RESET}"  # Dark gray left parenthesis
-            f"{self.WHITE}{timestamp}{self.RESET}"  # Light gray date
-            f"{self.BRIGHT_BLACK}]{self.RESET} "  # Dark gray left parenthesis
+            f"{self.BRIGHT_BLACK}[{self.RESET}"
+            f"{self.WHITE}{timestamp}{self.RESET}"
+            f"{self.BRIGHT_BLACK}]{self.RESET} "
             f"{formatted_message}"
         )
 
