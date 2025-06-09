@@ -1,10 +1,9 @@
 from functools import partial
 from typing import List, Tuple, Union
 from datetime import datetime, timedelta
-import time
 
-SECONDS_IN_DAY = 24 * 60 * 60
-
+# --- Configuration Keys (Constants) ---
+# These remain unchanged as they are clear and effective.
 CONFIG_IF_DIRECTORY_EMPTY = "if_directory_empty"
 CONFIG_DOWNLOADS_LIMIT = "downloads_limit"
 CONFIG_FILE_NAME_TEMPLATE = "file_name_template"
@@ -31,83 +30,141 @@ WEEK_DAYS = (
     "Sunday",
 )
 
+# --- Custom Exception for Clearer Error Handling ---
+class ConfigurationError(ValueError):
+    """Custom exception for errors found in the configuration."""
+    pass
 
-def configuration_verification(config: dict) -> Tuple[bool, List[str]]:
-    for podcast in config[CONFIG_PODCASTS]:
+
+# --- Functions ---
+
+def configuration_verification(config: dict) -> None:
+    """
+    Verifies the podcast configuration, raising an error if invalid.
+    
+    Args:
+        config: The configuration dictionary.
+
+    Raises:
+        ConfigurationError: If a required key is missing for a podcast.
+    """
+    if CONFIG_PODCASTS not in config or not isinstance(config[CONFIG_PODCASTS], list):
+        raise ConfigurationError(f"The '{CONFIG_PODCASTS}' key is missing or is not a list.")
+
+    for i, podcast in enumerate(config[CONFIG_PODCASTS]):
+        podcast_name = podcast.get(CONFIG_PODCASTS_NAME, f"unnamed podcast at index {i}")
+        
         if not CONFIG_PODCASTS_PATH in podcast:
-            return (
-                False,
-                f"There is no path for podcast {podcast[CONFIG_PODCASTS_NAME]}",
-            )
-
+            raise ConfigurationError(f"There is no '{CONFIG_PODCASTS_PATH}' key for podcast '{podcast_name}'")
+        
         if not CONFIG_PODCASTS_RSS_LINK in podcast:
-            return (
-                False,
-                f"There is no RSS link for podcast {podcast[CONFIG_PODCASTS_NAME]}",
-            )
-
-    return True, None
+            raise ConfigurationError(f"There is no '{CONFIG_PODCASTS_RSS_LINK}' key for podcast '{podcast_name}'")
 
 
-def get_n_age_date(day_number: int, from_date: time.struct_time) -> time.struct_time:
-    return time.localtime(time.mktime(from_date) - day_number * SECONDS_IN_DAY)
+def get_n_age_date(day_number: int, from_date: datetime) -> datetime:
+    """
+    Calculates a date that is `day_number` days before `from_date`.
+
+    Args:
+        day_number: The number of days to go back.
+        from_date: The starting date.
+
+    Returns:
+        The resulting past date as a datetime object.
+    """
+    return from_date - timedelta(days=day_number)
 
 
-def get_label_to_date(day_label: Union[str, int]) -> partial:
-    if day_label in WEEK_DAYS:
-        return partial(get_week_day, day_label)
+def get_week_day(weekday_label: str, from_date: datetime) -> datetime:
+    """
+    Finds the date of the last occurrence of a given weekday before or on `from_date`.
 
-    return partial(get_nth_day, int(day_label))
+    Args:
+        weekday_label: The name of the weekday (e.g., "Monday").
+        from_date: The starting date.
+
+    Returns:
+        The date of the last specified weekday.
+    """
+    target_weekday_index = WEEK_DAYS.index(weekday_label)
+    days_ago = (from_date.weekday() - target_weekday_index + 7) % 7
+    # If today is the target day, get the one from last week.
+    if days_ago == 0:
+        days_ago = 7
+    return from_date - timedelta(days=days_ago)
 
 
-def get_week_day(weekday_label: str, from_date: time.struct_time) -> time.struct_time:
-    from_datetime = datetime(*from_date[:6])
-    weekday_from_date = from_datetime.weekday()
-    weekday_label_index = WEEK_DAYS.index(weekday_label)
-    result_datetime = from_datetime - timedelta(
-        6
-        if weekday_from_date == weekday_label_index
-        else weekday_from_date - weekday_label_index - 1
-    )
+def get_nth_day(day_of_month: int, from_date: datetime) -> datetime:
+    """
+    Finds the date of the last time it was the Nth day of a month.
 
-    return result_datetime.timetuple()
+    Args:
+        day_of_month: The day of the month (1-31).
+        from_date: The starting date.
 
-
-def get_nth_day(day: int, from_date: time.struct_time) -> time.struct_time:
-    from_datetime = datetime(*from_date[:6])
-
-    day_difference = from_date[2] - day
-    datetime_result = (
-        from_datetime - timedelta(days=day_difference - 1)
-        if day_difference > 0
-        else (from_datetime.replace(day=1) - timedelta(days=28)).replace(day=day + 1)
-    )
-
-    return datetime_result.timetuple()
+    Returns:
+        The date of the last Nth day.
+    """
+    if from_date.day >= day_of_month:
+        # The last Nth day was in the current month.
+        return from_date.replace(day=day_of_month)
+    else:
+        # The last Nth day was in the previous month.
+        # Go to the first day of the current month, then go back one day to get to the previous month.
+        last_day_of_previous_month = from_date.replace(day=1) - timedelta(days=1)
+        return last_day_of_previous_month.replace(day=day_of_month)
 
 
 def parse_day_label(raw_label: str) -> Union[str, int]:
-    if raw_label.isnumeric():
-        return int(raw_label)
+    """
+    Parses a string label into either an integer day or a weekday string.
 
-    if raw_label == "1st":
-        return 1
+    Args:
+        raw_label: The input string (e.g., "1st", "15th", "Monday", "mon").
 
-    if raw_label == "2nd":
-        return 2
+    Returns:
+        An integer for a day of the month, or a capitalized weekday string.
+    """
+    # Handle numeric days with suffixes (e.g., "1st", "2nd", "3rd", "4th")
+    label = raw_label.lower()
+    if label.endswith(("st", "nd", "rd", "th")):
+        return int(label[:-2])
 
-    if raw_label == "3rd":
-        return 3
+    if label.isnumeric():
+        return int(label)
 
-    if raw_label[-2:] == "th":
-        return int(raw_label[:-2])
-
+    # Handle weekday names (e.g., "Monday", "mon")
     capitalize_raw_label = raw_label.capitalize()
+    short_weekdays = {
+        "Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday",
+        "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"
+    }
+
     if capitalize_raw_label in WEEK_DAYS:
         return capitalize_raw_label
-
-    short_weekdays = ("Mon", "Tues", "Weds", "Thurs", "Fri", "Sat", "Sun")
+    
     if capitalize_raw_label in short_weekdays:
-        return WEEK_DAYS[short_weekdays.index(capitalize_raw_label)]
+        return short_weekdays[capitalize_raw_label]
 
-    raise Exception(f"Cannot read weekday name '{raw_label}'")
+    raise ValueError(f"Cannot parse day label '{raw_label}'")
+
+
+def get_label_to_date(day_label: Union[str, int]) -> partial:
+    """
+    Returns a function to calculate a date based on a parsed label.
+    This now works with datetime objects.
+
+    Args:
+        day_label: A weekday string or a day-of-the-month integer.
+
+    Returns:
+        A partial function that takes a `from_date` datetime object and returns a past date.
+    """
+    if isinstance(day_label, str) and day_label in WEEK_DAYS:
+        return partial(get_week_day, day_label)
+    
+    if isinstance(day_label, int):
+        return partial(get_nth_day, day_label)
+
+    # This case should ideally not be reached if parse_day_label works correctly.
+    raise TypeError(f"Unsupported label type for date calculation: {day_label}")
