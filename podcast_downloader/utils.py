@@ -7,28 +7,28 @@ from typing import Callable, Any, List, Tuple
 
 class ConsoleOutputFormatter(logging.Formatter):
     """
-    An advanced logging formatter that uses regular expressions and special cases
+    An advanced logging formatter that uses special cases and regular expressions
     to apply Catppuccin Mocha colors to log messages.
     """
     # Using TrueColor (24-bit) codes for maximum color fidelity
     RESET = "\033[0m"
 
     # --- Catppuccin Mocha Palette ---
-    RED = "\033[38;2;243;139;168m"        # Error
-    GREEN = "\033[38;2;166;227;161m"      # Success
-    YELLOW = "\033[38;2;249;226;175m"     # Warning
-    BLUE = "\033[38;2;137;180;250m"       # Default INFO
-    CYAN = "\033[38;2;148;226;213m"       # Actions
-    WHITE = "\033[38;2;186;194;222m"      # Config Path
+    RED = "\033[38;2;243;139;168m"      # Error
+    GREEN = "\033[38;2;166;227;161m"    # Success
+    YELLOW = "\033[38;2;249;226;175m"  # Warning
+    BLUE = "\033[38;2;137;180;250m"     # Default INFO
+    CYAN = "\033[38;2;148;226;213m"     # Actions
+    WHITE = "\033[38;2;186;194;222m"    # Config Path Text
     BRIGHT_BLACK = "\033[38;2;88;91;112m" # DEBUG text
-    ROSEWATER = "\033[38;2;245;224;220m"  # Quoted Podcast Names
-    PINK = "\033[38;2;245;194;231m"       # Config Path
-    Flamingo = "\033[38;2;242;205;205m"   # Timestamp text
-    MAUVE = "\033[38;2;203;166;247m"      # 'Nothing new' message
-    LAVENDER = "\033[38;2;180;190;254m"   # "-> ..." text
-    MAROON = "\033[38;2;235;160;172m"     # Filename on download line
-    SKY = "\033[38;2;137;220;235m"        # Links/URLs
-    OVERLAY2 = "\033[38;2;147;153;178m"   # Timestamp Brackets
+    ROSEWATER = "\033[38;2;245;224;220m" # Quoted Podcast Names/Data
+    FLAMINGO = "\033[38;2;242;205;205m" # Timestamp text
+    MAUVE = "\033[38;2;203;166;247m"    # 'Nothing new' message
+    LAVENDER = "\033[38;2;180;190;254m" # "-> ..." text
+    MAROON = "\033[38;2;235;160;172m"   # Filename on download line
+    SKY = "\033[38;2;137;220;235m"      # Links/URLs
+    OVERLAY2 = "\033[38;2;147;153;178m" # Timestamp Brackets
+    PINK = "\033[38;2;245;194;231m"     # Used for config path quotes
 
     # Dictionary mapping log levels to color constants
     LEVEL_COLORS = {
@@ -38,13 +38,13 @@ class ConsoleOutputFormatter(logging.Formatter):
         logging.ERROR: RED,
     }
 
-    # General rules for simple log messages
+    # Cleaned up general rules for simple log messages
     KEYWORD_RULES: List[Tuple[str, str]] = [
-        (r'(Checking)', CYAN),
-        (r'(Last downloaded file:)', CYAN),
+        (r'(Checking)', BLUE),
+        (r'(Last downloaded file:)', BLUE),
         (r'(".*?")', ROSEWATER),
-        (r'(Nothing new to download\.)', MAUVE),
         (r'(Finished\.)', GREEN),
+        (r'(Nothing new to download\.)', MAUVE),
 
     ]
 
@@ -53,32 +53,31 @@ class ConsoleOutputFormatter(logging.Formatter):
         super().__init__(fmt="{message}", datefmt="%Y-%m-%d %H:%M:%S", style='{')
 
     def format(self, record: logging.LogRecord) -> str:
-        """Formats the log record by applying special-case and keyword-based coloring rules."""
+        """Formats the log record by applying keyword-based coloring rules."""
         timestamp = self.formatTime(record, self.datefmt)
-        
         message = record.msg.format(*record.args) if record.args else record.msg
-
-        # Handle the "Loading configuration" line as a special case
+        
+        # Handle special cases first for full control over coloring
         if record.msg.startswith('Loading configuration from file:'):
             pattern = r'(Loading configuration from file: )(".*?")'
             formatted_message = re.sub(
                 pattern,
-                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.Pink}{m.group(2)}{self.RESET}",
+                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.WHITE}{m.group(2)}{self.RESET}",
                 message
             )
-        # Handle the "Downloading file" line as another special case
-        elif record.msg.startswith('Downloading new episode of:'):
+        # This check is now synced with the correct __main__.py
+        elif record.msg.startswith('{}: Downloading new episode...'):
             podcast_name, = record.args
             text_part = record.msg.replace('{}', f'"{podcast_name}"')
-            formatted_message = f"{self.ROSEWATER}{text_part}{self.RESET}"       
-            
-        elif record.msg.startswith('  -> Source URL:'):
+            formatted_message = f"{self.CYAN}Downloading new episode of: {self.RESET}{self.ROSEWATER}{text_part}{self.RESET}"
+        
+        elif record.msg.startswith('    -> Source URL:'):
             url, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+            formatted_message = f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
 
-        elif record.msg.startswith('  -> Saved as:'):
+        elif record.msg.startswith('    -> Saved as:'):
             filename, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Saved as:{self.RESET} {self.ROSEWATER}\"{filename}\"{self.RESET}"
+            formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.MAROON}\"{filename}\"{self.RESET}"
 
         else:
             # For all other messages, use the general keyword rules
@@ -97,7 +96,7 @@ class ConsoleOutputFormatter(logging.Formatter):
 
         return (
             f"{self.OVERLAY2}[{self.RESET}"
-            f"{self.Flamingo}{timestamp}{self.RESET}"
+            f"{self.FLAMINGO}{timestamp}{self.RESET}"
             f"{self.OVERLAY2}]{self.RESET} "
             f"{formatted_message}"
         )
