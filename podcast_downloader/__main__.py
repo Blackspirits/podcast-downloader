@@ -48,10 +48,6 @@ if not logger.handlers:
     handler.setFormatter(ConsoleOutputFormatter())
     logger.addHandler(handler)
 
-def sanitize_filename(filename: str) -> str:
-    """Remove illegal characters from a filename."""
-    return re.sub(r'[\\/*?:"<>|]', "", filename)
-
 def download_rss_entity_to_path(
     headers: Dict[str, str],
     to_file_name_function: Callable[[RSSEntity], str],
@@ -147,12 +143,8 @@ def configuration_to_function_rss_to_name(
             default_template,
         )
     
-    return compose(
-        sanitize_filename,
-        partial(file_template_to_file_name, configuration_value)
-    )
-
-
+    return partial(file_template_to_file_name, configuration_value)
+        
 def load_the_last_run_date_store_now(marker_file_path_str: str, now: datetime):
     if not marker_file_path_str:
         return None
@@ -267,7 +259,7 @@ def main():
                 current_downloaded_in_feed = [f for f in all_feed_files if f in downloaded_files_set]
                 if not current_downloaded_in_feed:
                     last_downloaded_file = None
-                    download_limiter = lambda x: x # Download all rss_source_name = rss_source.ge
+                    download_limiter = lambda x: x # Download all
                 elif rss_fill_up_gaps:
                     last_downloaded_file = get_last_downloaded_file_before_gap(all_feed_files, current_downloaded_in_feed)
                 else:
