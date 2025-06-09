@@ -50,6 +50,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     KEYWORD_RULES: List[Tuple[str, str]] = [
         (r'(Checking)', BLUE),
         (r'(Last downloaded file:)', BLUE),
+        (r'(Loading configuration from file:)', BLUE),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
         (r'(Nothing new to download\.)', MAUVE),
@@ -73,22 +74,22 @@ class ConsoleOutputFormatter(logging.Formatter):
             pattern = r'(Loading configuration from file: )(".*?")'
             formatted_message = re.sub(
                 pattern,
-                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
+                lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
                 message
             )
         # Handle the "Downloading file" line as another special case
         elif record.msg.startswith('Downloading new episode of: {}'):
             podcast_name, = record.args
-            formatted_message = f"{self.GREEN}Downloading new episode of:{self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
+            formatted_message = f"{self.GREEN}Downloading new episode of: {self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
         
-        elif record.msg.strip().startswith("-> Source URL:") and record.args:
+        elif record.msg.strip().startswith("    -> Source URL:") and record.args:
             url = record.args[0]
-            return f"  {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+            return f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
 
 
-        elif record.msg.startswith('  -> Saved as:'):
+        elif record.msg.startswith('    -> Saved as:'):
             filename, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Saved as:{self.RESET} {self.TEXT}\"{filename}\"{self.RESET}"
+            formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.TEXT}\"{filename}\"{self.RESET}"
 
         else:
             # For all other messages, use the general keyword rules
@@ -106,9 +107,9 @@ class ConsoleOutputFormatter(logging.Formatter):
             formatted_message += "\n" + self.formatException(record.exc_info)
 
         return (
-            f"{self.BASE}[{self.RESET}"
+            f"{self.MAROON}[{self.RESET}"
             f"{self.PEACH}{timestamp}{self.RESET}"
-            f"{self.BASE}]{self.RESET} "
+            f"{self.MAROON}]{self.RESET} "
             f"{formatted_message}"
         )
 
