@@ -22,10 +22,13 @@ class ConsoleOutputFormatter(logging.Formatter):
     WHITE = "\033[38;2;186;194;222m"    # Timestamp text
     BRIGHT_BLACK = "\033[38;2;88;91;112m" # DEBUG text & Timestamp brackets
     ROSEWATER = "\033[38;2;245;224;220m" # Quoted Filenames
-    PINK = "\033[38;2;245;194;231m"     # Config Path
+    FLAMINGO = "\033[38;2;242;205;205m" # Config Path
     MAUVE = "\033[38;2;203;166;247m"    # 'Nothing new' message
     LAVENDER = "\033[38;2;180;190;254m" # "saved as" text
+    MAROON = "\033[38;2;235;160;172m"
     SKY = "\033[38;2;137;220;235m"      # Links/URLs
+    OVERLAY2 = "\033[38;2;147;153;178m"
+    PINK = "\033[38;2;245;194;231m"
 
     # Dictionary mapping log levels to color constants
     LEVEL_COLORS = {
@@ -68,9 +71,10 @@ class ConsoleOutputFormatter(logging.Formatter):
             podcast_name, = record.args
             formatted_message = f"{self.BLUE}Downloading new episode of:{self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
         
-        elif record.msg.startswith('  -> Source URL:'):
-            url, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+        elif record.msg.strip().startswith("-> Source URL:") and record.args:
+            url = record.args[0]
+            return f"  {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+
 
         elif record.msg.startswith('  -> Saved as:'):
             filename, = record.args
@@ -92,9 +96,9 @@ class ConsoleOutputFormatter(logging.Formatter):
             formatted_message += "\n" + self.formatException(record.exc_info)
 
         return (
-            f"{self.BRIGHT_BLACK}[{self.RESET}"
+            f"{self.FLAMINGO}[{self.RESET}"
             f"{self.WHITE}{timestamp}{self.RESET}"
-            f"{self.BRIGHT_BLACK}]{self.RESET} "
+            f"{self.FLAMINGO}]{self.RESET} "
             f"{formatted_message}"
         )
 
