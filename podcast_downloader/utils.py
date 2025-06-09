@@ -1,49 +1,48 @@
-# podcast_downloader/utils.py (with Catppuccin Mocha Colors)
+# podcast_downloader/utils.py (Advanced Coloring Engine)
 
 import logging
+import re
 from functools import reduce
-from typing import Callable, Any
+from typing import Callable, Any, List, Tuple
 
 class ConsoleOutputFormatter(logging.Formatter):
     """
-    A custom logging formatter that adds Catppuccin Mocha colors to the terminal output.
+    An advanced logging formatter that uses regular expressions to apply
+    Catppuccin Mocha colors to specific keywords within log messages.
     """
     # Using TrueColor (24-bit) codes for maximum color fidelity
-    # Format: \033[38;2;R;G;Bm
     RESET = "\033[0m"
 
-    # Catppuccin Mocha palette colors
+    # --- Catppuccin Mocha Palette ---
     # https://github.com/catppuccin/catppuccin
-    COLORS = {
-        # DEBUG: Subtext0 (#a6adc8)
-        logging.DEBUG: "\033[38;2;166;173;200m",
-        # INFO: Sapphire (#74c7ec)
-        logging.INFO: "\033[38;2;116;199;236m",
-        # WARNING: Peach (#fab387)
-        logging.WARNING: "\033[38;2;250;179;135m",
-        # ERROR: Red (#f38ba8)
-        logging.ERROR: "\033[38;2;243;139;168m",
-    }
-    
-    # DATE_COLOR: Overlay0 (#6c7086)
-    DATE_COLOR = "\033[38;2;108;112;134m"
+    RED = "\033[38;2;243;139;168m"      # Error
+    PEACH = "\033[38;2;250;179;135m"    # Warning
+    YELLOW = "\033[38;2;249;226;175m"  # Data, paths, names
+    GREEN = "\033[38;2;166;227;161m"    # Success, completion
+    TEAL = "\033[38;2;148;226;213m"     # Actions, status
+    SAPPHIRE = "\033[38;2;116;199;236m" # Default INFO color
+    SUBTEXT0 = "\033[38;2;166;173;200m" # DEBUG
+    OVERLAY0 = "\033[38;2;108;112;134m" # Timestamp
 
+    # The list of rules to apply. Each rule is a tuple of (regex_pattern, color).
+    # The regex pattern should contain one capturing group (...) for the part to be colored.
+    # The rules are applied in order.
+    COLORING_RULES: List[Tuple[str, str]] = [
+        (r'(Loading configuration from file:)', TEAL),
+        (r'(Checking)', TEAL),
+        (r'(Last considered downloaded file:)', TEAL),
+        (r'(Nothing new to download\.)', GREEN),
+        (r'(Finished\.)', GREEN),
+        # This rule finds any text inside double quotes
+        (r'(".*?")', YELLOW),
+    ]
 
     def __init__(self) -> None:
-        """
-        Initializes the formatter using '{'-style formatting.
-        """
-        super().__init__(
-            fmt="{message}",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            style='{'
-        )
+        """Initializes the formatter."""
+        super().__init__(fmt="{message}", datefmt="%Y-%m-%d %H:%M:%S", style='{')
 
     def format(self, record: logging.LogRecord) -> str:
-        """
-        Formats the log record with the appropriate colors.
-        """
-        level_color = self.COLORS.get(record.levelno, self.RESET)
+        """Formats the log record by applying keyword-based coloring rules."""
         timestamp = self.formatTime(record, self.datefmt)
 
         if record.args:
@@ -51,17 +50,35 @@ class ConsoleOutputFormatter(logging.Formatter):
         else:
             message = record.msg
 
-        if record.exc_info:
-            message += "\n" + self.formatException(record.exc_info)
+        # Start with the default color for the log level
+        level_color = {
+            logging.DEBUG: self.SUBTEXT0,
+            logging.INFO: self.SAPPHIRE,
+            logging.WARNING: self.PEACH,
+            logging.ERROR: self.RED,
+        }.get(record.levelno, self.SAPPHIRE)
+        
+        # Apply specific keyword coloring rules
+        formatted_message = message
+        for pattern, color in self.COLORING_RULES:
+            # The replacement function wraps the found group (the part in parentheses)
+            # with the specified color codes.
+            formatted_message = re.sub(
+                pattern,
+                lambda m: f"{color}{m.group(1)}{level_color}",
+                formatted_message
+            )
 
-        return (
-            f"[{self.DATE_COLOR}{timestamp}{self.RESET}] "
-            f"{level_color}{message}{self.RESET}"
-        )
+        # The final message is wrapped in the default level color
+        # Parts of it may have been overridden by the rules above.
+        final_message = f"{level_color}{formatted_message}{self.RESET}"
+
+        if record.exc_info:
+            final_message += "\n" + self.formatException(record.exc_info)
+
+        return f"[{self.OVERLAY0}{timestamp}{self.RESET}] {final_message}"
 
 
 def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
-    """
-    Composes single-argument functions from right to left.
-    """
+    """Composes single-argument functions from right to left."""
     return reduce(lambda f, g: lambda x: f(g(x)), functions)
