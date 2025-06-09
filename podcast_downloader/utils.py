@@ -92,25 +92,32 @@ class ConsoleOutputFormatter(logging.Formatter):
                 "\n"
                 f"{self.BLUE}Nothing new for: {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
+
+        elif message.startswith('Checking'):
+            podcast_name = record.args[0] if record.args else "?"
+            formatted_message = (
+                "\n"
+                f"{self.BLUE}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
+            )
     
         elif message.startswith("    -> Source URL:"):
             url = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"{self.MAUVE}    -> Source URL: {self.RESET}{self.SKY}\"{url}\"{self.RESET}"
+                f"{self.MAUVE}    -> Source URL: {self.SKY}\"{url}\"{self.RESET}"
             )
     
         elif message.startswith('    -> Saved as:  '):
             filename = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"{self.MAUVE}    -> Saved as:  {self.RESET}{self.SAPPHIRE}\"{filename}\"{self.RESET}"
+                f"{self.MAUVE}    -> Saved as:  {self.SAPPHIRE}\"{filename}\"{self.RESET}"
             )
     
         elif message.startswith('Last downloaded file:'):
             filename = record.args[0] if record.args else "?"
             formatted_message = f"{self.BLUE}Last downloaded file: {self.SAPPHIRE}\"{filename}\"{self.RESET}"
-    
+ 
         else:
             default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
             formatted_message = (
