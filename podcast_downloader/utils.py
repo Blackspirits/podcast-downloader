@@ -1,9 +1,10 @@
 # (With Catppuccin Mocha Theme)
-
+import os
 import logging
 import re
 from functools import reduce
 from typing import Callable, Any, List, Tuple
+from logging.handlers import TimedRotatingFileHandler
 
 class ConsoleOutputFormatter(logging.Formatter):
     """
