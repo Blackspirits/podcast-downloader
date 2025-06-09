@@ -156,7 +156,7 @@ def configuration_to_function_rss_to_name(
         if sub_configuration[configuration.CONFIG_PODCASTS_REQUIRE_DATE]:
             configuration_value = default_template
         logger.warning(
-            'The option % is deprecated. Please use %: "%"',
+            'The option %s is deprecated. Please use %s: "%s"', # Changed % to %s for string formatting
             configuration.CONFIG_PODCASTS_REQUIRE_DATE,
             configuration.CONFIG_FILE_NAME_TEMPLATE,
             default_template,
@@ -185,7 +185,7 @@ def load_the_last_run_date_store_now(marker_file_path_str: str, now: datetime):
     access_time_stamp = marker_file.stat().st_atime
     access_time = datetime.fromtimestamp(access_time_stamp)
     logger.info(
-        "The last time the script was run: %",
+        "The last time the script was run: %s", # Changed % to %s for string formatting
         access_time.strftime("%Y-%m-%d %H:%M:%S"),
     )
 
@@ -275,19 +275,23 @@ def main():
             all_feed_files = [to_real_podcast_file_name(entry) for entry in all_feed_entries][::-1]
             downloaded_files_set = set(downloaded_files)
             
+            # --- CORREÇÃO DA LÓGICA DO download_limiter AQUI ---
             if not downloaded_files_set:
                 download_limiter = configuration_to_function_on_empty_directory(rss_on_empty_directory, LAST_RUN_DATETIME)
                 last_downloaded_file = None
             else:
                 current_downloaded_in_feed = [f for f in all_feed_files if f in downloaded_files_set]
+                
                 if not current_downloaded_in_feed:
                     last_downloaded_file = None
-                    download_limiter = lambda x: x # Download all rss_source_name = rss_source.ge
+                    download_limiter = lambda x: x # Se não há arquivos baixados, baixe todos do feed
                 elif rss_fill_up_gaps:
                     last_downloaded_file = get_last_downloaded_file_before_gap(all_feed_files, current_downloaded_in_feed)
+                    download_limiter = build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries)
                 else:
                     last_downloaded_file = current_downloaded_in_feed[-1]
-                download_limiter = build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries)
+                    download_limiter = build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries)
+            # --- FIM DA CORREÇÃO ---
 
             missing_files_links = list(download_limiter(all_feed_entries))
             logger.info('Last downloaded file: "%s"', last_downloaded_file or "<none>")
@@ -319,11 +323,11 @@ def main():
                 # Replaced the single log line with three separate, clearer lines.
                 logger.info('Downloading new episode of: %s', rss_source_name)
                 logger.info('  -> Source URL: "%s"', rss_entry.link)
-                logger.info('  -> Saved as:   "%s"', wanted_podcast_file_name)
+                logger.info('  -> Saved as:    "%s"', wanted_podcast_file_name)
 
                 download_podcast(rss_entry)
                 DOWNLOADS_LIMITS -= 1
-        
+            
         except Exception as e:
             logger.error('Critical failure while processing feed "%s". Error: %s', rss_source.get('name', rss_source.get('rss_link')), e)
 
