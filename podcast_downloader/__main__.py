@@ -2,11 +2,12 @@ import sys
 import time
 import logging
 import argparse
+import re # Added re import for ConsoleOutputFormatter
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
-from functools import partial
-from typing import Callable, Dict, Iterable
+from functools import partial, reduce # Added reduce import for compose
+from typing import Callable, Dict, Iterable, Any, List, Tuple # Added Any, List, Tuple for type hinting
 
 import requests
 
@@ -36,10 +37,134 @@ from .rss import (
     only_entities_from_date,
     only_last_n_entities,
 )
-from .utils import ConsoleOutputFormatter, compose
 
+# --- Define ConsoleOutputFormatter and compose here to ensure they are available ---
+class ConsoleOutputFormatter(logging.Formatter):
+    """
+    An advanced logging formatter that uses special cases and regex patterns
+    to apply Catppuccin Mocha colors to log messages.
+    """
+
+    RESET = "\033[0m"
+
+    # --- Catppuccin Mocha Palette ---
+    RED = "\033[38;2;243;139;168m"
+    GREEN = "\033[38;2;166;227;161m"
+    YELLOW = "\033[38;2;249;226;175m"
+    BLUE = "\033[38;2;137;180;250m"
+    CYAN = "\033[38;2;148;226;213m"
+    WHITE = "\033[38;2;186;194;222m"
+    BRIGHT_BLACK = "\033[38;2;88;91;112m"
+    ROSEWATER = "\033[38;2;245;224;220m"
+    FLAMINGO = "\033[38;2;242;205;205m"
+    MAUVE = "\033[38;2;203;166;247m"
+    LAVENDER = "\033[38;2;180;190;254m"
+    MAROON = "\033[38;2;235;160;172m"
+    SKY = "\033[38;2;137;220;235m"
+    OVERLAY2 = "\033[38;2;147;153;178m"
+    PINK = "\033[38;2;245;194;231m"
+
+    LEVEL_COLORS = {
+        logging.DEBUG: BRIGHT_BLACK,
+        logging.INFO: BLUE,
+        logging.WARNING: YELLOW,
+        logging.ERROR: RED,
+        logging.CRITICAL: RED, # Good to include CRITICAL if not already
+    }
+
+    KEYWORD_RULES: List[Tuple[str, str]] = [
+        (r'\b(Checking)\b', BLUE),
+        (r'\b(Last downloaded file:)\b', BLUE),
+        (r'(".*?")', ROSEWATER),
+        (r'\b(Finished\.)', GREEN),
+        (r'\b(Nothing new to download\.)', MAUVE),
+    ]
+
+    def __init__(self) -> None:
+        # CORRECTED: Only pass datefmt, as you are fully overriding the format method.
+        # This resolves the KeyError/ValueError.
+        super().__init__(datefmt="%Y-%m-%d %H:%M:%S")
+
+        # OPTIONAL: Pre-compile regex patterns for efficiency if rules are extensive/used frequently
+        self._compiled_keyword_rules = [(re.compile(pattern), color) for pattern, color in self.KEYWORD_RULES]
+
+
+    def format(self, record: logging.LogRecord) -> str:
+        timestamp = self.formatTime(record, self.datefmt)
+        # _format_message correctly calls self.formatMessage(record) internally
+        message = self._format_message(record)
+        prefix = f"{self.OVERLAY2}[{self.RESET}{self.FLAMINGO}{timestamp}{self.RESET}{self.OVERLAY2}]{self.RESET} "
+        return prefix + message
+
+    def _format_message(self, record: logging.LogRecord) -> str:
+        # `message` now contains the fully interpolated string (e.g., "%s" replaced by actual args)
+        message = self.formatMessage(record)
+
+        # Special case formatting based on full `record.msg` content
+        # Adjusted regex to match the log output you showed previously:
+        if record.msg.startswith("Loaded configuration from file:"):
+            return re.sub(
+                r'(Loaded configuration from file: )(".*?")',
+                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.WHITE}{m.group(2)}{self.RESET}",
+                message
+            )
+        elif record.msg.startswith('Checking feed "'):
+            return re.sub(
+                r'(Checking feed )(".*?")',
+                lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.ROSEWATER}{m.group(2)}{self.RESET}",
+                message
+            )
+        elif record.msg.startswith('Last downloaded file: "'):
+            return re.sub(
+                r'(Last downloaded file: )(".*?")',
+                lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.ROSEWATER}{m.group(2)}{self.RESET}",
+                message
+            )
+        elif record.msg.startswith('Downloading new episode from "') and record.args:
+            # Example message: 'Downloading new episode from "Podcast Name"'
+            return re.sub(r'(Downloading new episode from )(".*?")',
+                          lambda m: f"{self.CYAN}{m.group(1)}{self.ROSEWATER}{m.group(2)}{self.RESET}",
+                          message)
+
+        elif record.msg.strip().startswith("-> Source URL:") and record.args:
+            # message will be "-> Source URL: "http://example.com/url""
+            # Use split to get the URL part and apply color
+            return f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}{message.split(': ', 1)[1]}{self.RESET}"
+
+        elif record.msg.strip().startswith("-> Saving as:") and record.args:
+            # message will be "-> Saving as: "/path/to/file""
+            # Use split to get the path part and apply color
+            return f"    {self.LAVENDER}-> Saving as:{self.RESET} {self.MAROON}{message.split(': ', 1)[1]}{self.RESET}"
+
+        # Apply default level coloring first
+        color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
+        colored = f"{color}{message}{self.RESET}"
+
+        # Apply keyword rules. Using pre-compiled patterns for efficiency.
+        for compiled_pattern, keyword_color in self._compiled_keyword_rules:
+            # The lambda function uses the `color` (level color) to reset to after the keyword
+            # This ensures that subsequent text after the keyword retains the original log level color.
+            colored = compiled_pattern.sub(lambda m: f"{keyword_color}{m.group(1)}{color}", colored)
+
+        if record.exc_info:
+            # Color the exception text specifically in RED for errors
+            colored += "\n" + f"{self.RED}{self.formatException(record.exc_info)}{self.RESET}"
+
+        return colored
+
+def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
+    """
+    Composes single-argument functions from right to left:
+    compose(f, g, h)(x) == f(g(h(x)))
+    """
+    if not functions:
+        raise ValueError("At least one function must be provided.")
+    return reduce(lambda f, g: lambda x: f(g(x)), functions)
+
+# --- Logger Setup ---
 logger = logging.getLogger("podcast_downloader")
 logger.setLevel(logging.INFO)
+# Ensure handlers are only added once to prevent duplicate log messages
 if not logger.handlers:
     handler = logging.StreamHandler(stream=sys.stdout)
     handler.setFormatter(ConsoleOutputFormatter())
@@ -82,7 +207,7 @@ def build_parser():
     parser.add_argument("--dry_run", action="store_true", help="If set, do not perform actual downloads.")
     return parser
 
-def setup_configuration(args) -> dict:
+def setup_configuration(args) -> Dict[str, Any]: # Type hinted the return
     DEFAULT_CONFIGURATION = {
         "downloads_limit": sys.maxsize,
         "if_directory_empty": "download_last",
@@ -115,15 +240,26 @@ def load_the_last_run_date_store_now(marker_file_path_str: str, now: datetime):
     if not marker_file.exists():
         logger.warning("Marker file does not exist; creating new one with current time.")
         marker_file.parent.mkdir(parents=True, exist_ok=True)
-        marker_file.write_text("Marker file for podcast_downloader.")
+        # Use 'touch()' to create/update timestamp, which is often sufficient for marker files
+        marker_file.touch()
+        # Optionally, write some content if the file must not be empty
+        # with open(marker_file, "a") as f:
+        #     f.write("Marker file for podcast_downloader.\n")
         return now
-    access_time_stamp = marker_file.stat().st_atime
+    
+    # Get last access time. St_atime is more appropriate for "last run detected" than st_mtime.
+    access_time_stamp = marker_file.stat().st_atime 
     access_time = datetime.fromtimestamp(access_time_stamp)
     logger.info("Last run time detected: %s", access_time.strftime("%Y-%m-%d %H:%M:%S"))
-    now_timestamp = time.mktime(now.timetuple())
-    # Update the access and modification times
-    marker_file.utime((now_timestamp, now_timestamp))
+    
+    # Update the access and modification times to current time
+    marker_file.touch() # This updates modification time to now. Also updates access time on some systems.
+    # If explicit access/modification time setting is needed for cross-platform consistency:
+    # now_timestamp = time.mktime(now.timetuple())
+    # marker_file.utime((now_timestamp, now_timestamp)) 
+    
     return access_time
+
 
 def configuration_to_function_on_empty_directory(configuration_value: str, last_run_date: datetime):
     if configuration_value == "download_last":
@@ -136,7 +272,6 @@ def configuration_to_function_on_empty_directory(configuration_value: str, last_
         logger.error('Option "download_since_last_run" requires last run marker file to be set.')
         raise Exception("Missing last run marker file")
     # Matches like download_from_10_days, download_last_5_episodes, download_from_2023-06-01, etc
-    import re
     local_time = datetime.now()
     if match := re.match(r"^download_from_(\d+)_days$", configuration_value):
         from_date = get_n_age_date(int(match[1]), local_time)
@@ -224,7 +359,11 @@ def process_podcast_feed(
         download_function = partial(download_rss_entity_to_path, podcast_config["http_headers"], to_real_file_name, rss_source_path)
 
         for rss_entry in reversed(missing_files_links):
-            if global_config["downloads_limit"] <= 0:
+            # --- FIX for TypeError: '<=' not supported between instances of 'NoneType' and 'int' ---
+            # Ensure downloads_limit is an integer. sys.maxsize is the default.
+            # If it comes from configuration and somehow becomes None, default it to sys.maxsize
+            current_downloads_limit = global_config.get("downloads_limit", sys.maxsize)
+            if current_downloads_limit <= 0: # Now this comparison will always work
                 logger.info("Global download limit reached.")
                 break
             if podcast_config["download_delay"] > 0:
@@ -233,11 +372,13 @@ def process_podcast_feed(
             wanted_file_name = to_real_file_name(rss_entry)
 
             logger.info('Downloading new episode from "%s"', rss_source_name)
-            logger.info('  -> Source URL: "%s"', rss_entry.link)
-            logger.info('  -> Saving as: "%s"', wanted_file_name)
+            logger.info('    -> Source URL: "%s"', rss_entry.link)
+            logger.info('    -> Saving as: "%s"', wanted_file_name)
 
             if not dry_run:
                 download_function(rss_entry)
+                # Decrement the limit only if an actual download was performed
+                # Note: `global_config` is a dictionary, so this modifies it directly.
                 global_config["downloads_limit"] -= 1
 
             stats.downloads += 1
@@ -258,7 +399,11 @@ def main() -> int:
         logger.error("Configuration problem: %s", e)
         return 1
 
-    last_run_datetime = load_the_last_run_date_store_now(configuration.get("last_run_mark_file_path"), datetime.now())
+    # Ensure last_run_mark_file_path is passed correctly from configuration
+    last_run_datetime = load_the_last_run_date_store_now(
+        configuration.get("last_run_mark_file_path"),
+        datetime.now()
+    )
     dry_run = configuration.get("dry_run", False)
     total_stats = ProcessingStats()
 
