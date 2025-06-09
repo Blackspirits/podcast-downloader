@@ -97,14 +97,14 @@ class ConsoleOutputFormatter(logging.Formatter):
             url = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"{self.MAUVE}    -> Source URL: {self.SKY}\"{url}\"{self.RESET}"
+                f"{self.MAUVE}    -> Source URL: {self.RESET}{self.SKY}\"{url}\"{self.RESET}"
             )
     
         elif message.startswith('    -> Saved as:  '):
             filename = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"{self.MAUVE}    -> Saved as:  {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+                f"{self.MAUVE}    -> Saved as:  {self.RESET}{self.SAPPHIRE}\"{filename}\"{self.RESET}"
             )
     
         elif message.startswith('Last downloaded file:'):
