@@ -26,6 +26,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     MAUVE = "\033[38;2;203;166;247m"    # 'Nothing new' message
     LAVENDER = "\033[38;2;180;190;254m" # "saved as" text
     SKY = "\033[38;2;137;220;235m"      # Links/URLs
+    OVERLAY2 = "\033[38;2;147;153;178m" # #9399b2 (Timestamp Brackets)
 
     # Dictionary mapping log levels to color constants
     LEVEL_COLORS = {
