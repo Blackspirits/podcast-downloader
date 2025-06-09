@@ -25,7 +25,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     PINK = "\033[38;2;245;194;231m"       # Timestamp text
     MAUVE = "\033[38;2;203;166;247m"      # 'Nothing new' message
     LAVENDER = "\033[38;2;180;190;254m"   # "-> ..." text
-    MAROON = "\03g;2;235;160;172m"        # Filename on download line
+    MAROON = "\033[38;2;235;160;172m"     # Filename on download line
     SKY = "\033[38;2;137;220;235m"        # Links/URLs
     OVERLAY2 = "\033[38;2;147;153;178m"   # Timestamp Brackets
 
@@ -68,8 +68,9 @@ class ConsoleOutputFormatter(logging.Formatter):
         # Handle the "Downloading file" line as another special case
         elif record.msg.startswith('{}: Downloading new episode...'):
             podcast_name, = record.args
-            formatted_message = f"{self.CYAN}Downloading new episode of: {self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
-        
+            text_part = record.msg.replace('{}', f'"{podcast_name}"')
+            formatted_message = f"{self.ROSEWATER}{text_part}{self.RESET}"       
+            
         elif record.msg.startswith('    -> Source URL:'):
             url, = record.args
             formatted_message = f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
