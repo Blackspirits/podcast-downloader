@@ -22,19 +22,22 @@ class ConsoleOutputFormatter(Formatter):
     }
 
     def __init__(self) -> None:
-        """Initializes the formatter, setting only the date format."""
-        # The base Formatter is initialized without a message format string,
-        # as we are constructing it manually in the format() method.
-        super().__init__(fmt=None, datefmt="%Y-%m-%d %H:%M:%S")
+        """Initializes the formatter."""
+        # It's crucial to pass a format string containing `%(asctime)s` to the
+        # parent constructor. This ensures the formatter's `usesTime()` method
+        # returns True, which correctly sets up the internal time-handling
+        # machinery and prevents the ValueError. We override the final output
+        # in our custom `format()` method, so this `fmt` is not directly used.
+        super().__init__(
+            fmt="%(asctime)s %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
 
     def format(self, record: LogRecord) -> str:
         """
         Formats the log record with appropriate colors.
-
-        This method fixes a bug in the original implementation by ensuring
-        the message color does not override the timestamp color.
         """
-        # 1. Get the color for the specific log level. Default to RESET if not found.
+        # 1. Get the color for the specific log level.
         level_color = self.COLORS.get(record.levelno, self.RESET)
 
         # 2. Format the timestamp using the parent class's logic.
@@ -45,13 +48,9 @@ class ConsoleOutputFormatter(Formatter):
         
         # 4. Handle exceptions if they exist.
         if record.exc_info:
-            # formatException returns a multi-line string.
-            # We add it on a new line after the original message.
             message += "\n" + self.formatException(record.exc_info)
 
         # 5. Manually construct the final colored string.
-        #    - Timestamp is always gray.
-        #    - Message is colored by level.
         return (
             f"[{self.DATE_COLOR}{timestamp}{self.RESET}] "
             f"{level_color}{message}{self.RESET}"
@@ -63,19 +62,5 @@ def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
     Composes single-argument functions from right to left.
 
     For example, `compose(f, g, h)` is equivalent to `lambda x: f(g(h(x)))`.
-
-    Args:
-        *functions: A sequence of single-argument functions to compose.
-
-    Returns:
-        A new function that represents the composition of the input functions.
-    
-    Example:
-        add_one = lambda x: x + 1
-        double = lambda x: x * 2
-        
-        add_one_then_double = compose(double, add_one)
-        # Result is 6, because it calculates double(add_one(2))
-        result = add_one_then_double(2)
     """
     return reduce(lambda f, g: lambda x: f(g(x)), functions)
