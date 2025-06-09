@@ -44,7 +44,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     ]
 
     def __init__(self) -> None:
-        super().__init__(fmt="{message}", datefmt="%Y-%m-%d %H:%M:%S", style="{")
+        super().__init__(fmt="", datefmt="%Y-%m-%d %H:%M:%S", style="%"
 
     def format(self, record: logging.LogRecord) -> str:
         timestamp = self.formatTime(record, self.datefmt)
