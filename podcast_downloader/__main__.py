@@ -83,7 +83,7 @@ def build_parser():
     parser.add_argument("--dry_run", action="store_true", help="If set, do not perform actual downloads.")
     return parser
 
-def setup_configuration(args) -> dict:
+def setup_configuration(args) -> Dict[str, Any]:
     DEFAULT_CONFIGURATION = {
         "downloads_limit": sys.maxsize,
         "if_directory_empty": "download_last",
@@ -106,6 +106,15 @@ def setup_configuration(args) -> dict:
         config_file_data = {}
 
     merged = merge_parameters_collection(DEFAULT_CONFIGURATION, config_file_data, vars(args))
+
+    # This block ensures 'downloads_limit' in 'merged' (which becomes 'global_config') is always an int.
+    if not isinstance(merged.get("downloads_limit"), int):
+        try:
+            # Attempt to convert to int, fallback to sys.maxsize if conversion fails
+            merged["downloads_limit"] = int(merged.get("downloads_limit", sys.maxsize))
+        except (TypeError, ValueError):
+            merged["downloads_limit"] = sys.maxsize # Very large int for "no limit"
+
     configuration_verification(merged)
     return merged
 
