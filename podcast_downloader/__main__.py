@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
 from functools import partial
-from typing import Callable, Dict, Iterable
+from typing import Callable, Dict, Iterable, Any
 
 import requests
 
