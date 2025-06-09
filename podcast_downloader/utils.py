@@ -66,7 +66,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         # Handle the "Downloading file" line as another special case
         elif record.msg.startswith('Downloading new episode of: {}'):
             podcast_name, = record.args
-            formatted_message = f"{{self.BLUE}Downloading new episode of:{self.RESET} self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
+            formatted_messaformatted_message = f"{self.BLUE}Downloading new episode of:{self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"ge = f"{{self.BLUE}Downloading new episode of:{self.RESET} self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
         
         elif record.msg.startswith('  -> Source URL:'):
             url, = record.args
