@@ -71,70 +71,70 @@ class ConsoleOutputFormatter(logging.Formatter):
         timestamp = self.formatTime(record, self.datefmt)
         message = record.getMessage()
 
-    # Handle the "Loading configuration" line as a special case
-    if record.msg.startswith('Loading configuration from file:'):
-        pattern = r'(Loading configuration from file: )(".*?")'
-        formatted_message = re.sub(
-            pattern,
-            lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
-            message
+        # Handle the "Loading configuration" line as a special case
+        if record.msg.startswith('Loading configuration from file:'):
+            pattern = r'(Loading configuration from file: )(".*?")'
+            formatted_message = re.sub(
+                pattern,
+                lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
+                message
+            )
+
+        elif message.startswith('Downloading new episode of:'):
+            podcast_name = record.args[0] if record.args else "?"
+            formatted_message = (
+                "\n"
+                f"{self.GREEN}Downloading new episode of: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
+            )
+    
+        elif message.startswith("    -> Source URL:"):
+            url = record.args[0] if record.args else "?"
+            formatted_message = (
+                "\n"
+                f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+            )
+    
+        elif message.startswith('    -> Saved as:'):
+            filename = record.args[0] if record.args else "?"
+            formatted_message = (
+                "\n"
+                f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+            )
+    
+        elif message.startswith('Last downloaded file:'):
+            filename = record.args[0] if record.args else "?"
+            formatted_message = f"{self.BLUE}Last downloaded file: {self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+    
+        elif "Finished." in message:
+            default_color = self.LEVEL_COLORS.get(record.levelno, self.GREEN)
+            formatted_message = f"{default_color}{message}{self.RESET}\n"
+    
+        else:
+            default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
+            formatted_message = (
+                "\n"
+                f"{default_color}{message}{self.RESET}"
+            )
+    
+            for pattern, color in self.KEYWORD_RULES:
+                try:
+                    formatted_message = re.sub(
+                        pattern,
+                        lambda m: f"{color}{m.group(1)}{default_color}",
+                        formatted_message
+                    )
+                except re.error as e:
+                    print(f"[Formatter] Padrão inválido ignorado: {pattern} ({e})")
+    
+        if record.exc_info:
+            formatted_message += "\n" + self.formatException(record.exc_info)
+    
+        return (
+            f"{self.MAROON}[{self.RESET}"
+            f"{self.PEACH}{timestamp}{self.RESET}"
+            f"{self.MAROON}]{self.RESET} "
+            f"{formatted_message}"
         )
-
-    elif message.startswith('Downloading new episode of:'):
-        podcast_name = record.args[0] if record.args else "?"
-        formatted_message = (
-            "\n"
-            f"{self.GREEN}Downloading new episode of: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
-        )
-
-    elif message.startswith("    -> Source URL:"):
-        url = record.args[0] if record.args else "?"
-        formatted_message = (
-            "\n"
-            f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
-        )
-
-    elif message.startswith('    -> Saved as:'):
-        filename = record.args[0] if record.args else "?"
-        formatted_message = (
-            "\n"
-            f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
-        )
-
-    elif message.startswith('Last downloaded file:'):
-        filename = record.args[0] if record.args else "?"
-        formatted_message = f"{self.BLUE}Last downloaded file: {self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
-
-    elif "Finished." in message:
-        default_color = self.LEVEL_COLORS.get(record.levelno, self.GREEN)
-        formatted_message = f"{default_color}{message}{self.RESET}\n"
-
-    else:
-        default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
-        formatted_message = (
-            "\n"
-            f"{default_color}{message}{self.RESET}"
-        )
-
-        for pattern, color in self.KEYWORD_RULES:
-            try:
-                formatted_message = re.sub(
-                    pattern,
-                    lambda m: f"{color}{m.group(1)}{default_color}",
-                    formatted_message
-                )
-            except re.error as e:
-                print(f"[Formatter] Padrão inválido ignorado: {pattern} ({e})")
-
-    if record.exc_info:
-        formatted_message += "\n" + self.formatException(record.exc_info)
-
-    return (
-        f"{self.MAROON}[{self.RESET}"
-        f"{self.PEACH}{timestamp}{self.RESET}"
-        f"{self.MAROON}]{self.RESET} "
-        f"{formatted_message}"
-    )
 
 
 def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
