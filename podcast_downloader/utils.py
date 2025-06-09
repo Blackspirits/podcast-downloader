@@ -37,11 +37,11 @@ class ConsoleOutputFormatter(logging.Formatter):
 
     # General rules for simple log messages
     KEYWORD_RULES: List[Tuple[str, str]] = [
-        (r'(Checking)', CYAN),
+        (r'(Checking|Last downloaded file:)', CYAN),
         (r'(Last downloaded file:)', SKY),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
-        (r'(Nothing new to download\.)', MAUVE),
+        (r'(Nothing new\.)', MAUVE),
         (r'(Source URL:|Saved as:)', LAVENDER),
     ]
 
