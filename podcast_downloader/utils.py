@@ -7,8 +7,8 @@ from typing import Callable, Any, List, Tuple
 
 class ConsoleOutputFormatter(logging.Formatter):
     """
-    An advanced logging formatter that uses regular expressions to apply
-    Catppuccin Mocha colors based on a terminal color scheme.
+    An advanced logging formatter that uses regular expressions
+    to apply Catppuccin Mocha colors.
     """
     # Using TrueColor (24-bit) codes for maximum color fidelity
     RESET = "\033[0m"
@@ -19,12 +19,13 @@ class ConsoleOutputFormatter(logging.Formatter):
     GREEN = "\033[38;2;166;227;161m"    # #A6E3A1
     YELLOW = "\033[38;2;249;226;175m"  # #F9E2AF
     BLUE = "\033[38;2;137;180;250m"     # #89B4FA
-    CYAN = "\033[38;2;148;226;213m"     # #94E2D5 (mapped from Teal)
-    WHITE = "\033[38;2;186;194;222m"    # #BAC2DE (Subtext1, for Timestamp)
-    BRIGHT_BLACK = "\033[38;2;88;91;112m" # #585B70 (for DEBUG)
-    ROSEWATER = "\033[38;2;245;224;220m" # #f5e0dc (for file paths)
+    CYAN = "\033[38;2;148;226;213m"     # #94E2D5
+    WHITE = "\033[38;2;186;194;222m"    # #BAC2DE (Subtext1, for Timestamp text)
+    BRIGHT_BLACK = "\033[38;2;88;91;112m" # #585B70 (for DEBUG and Timestamp brackets)
+    ROSEWATER = "\033[38;2;245;224;220m" # #f5e0dc (for quoted text)
     PINK = "\033[38;2;245;194;231m"     # #f5c2e7 (for config path)
-    MAUVE = "\033[38;2;203;166;247m"    # #cba6f7 (for 'Nothing new' message)
+    MAUVE = "\033[38;2;203;166;247m"    # #cba6f7 (for 'Nothing new')
+    LAVENDER = "\033[38;2;180;190;254m" # #b4befe (for 'Downloading file')
 
     # Dictionary mapping log levels to the new color constants
     LEVEL_COLORS = {
@@ -36,10 +37,11 @@ class ConsoleOutputFormatter(logging.Formatter):
 
      # General rules for keyword coloring
     KEYWORD_RULES: List[Tuple[str, str]] = [
-        (r'(Loading configuration from file:|Checking|Last considered downloaded file:)', CYAN),
+        (r'(Loading configuration from file:|Checking|Last considered downloaded file:|Downloading file:| as)', CYAN),
         (r'(".*?")', ROSEWATER), # General rule for text in quotes
         (r'(Finished\.)', GREEN),
         (r'(Nothing new to download\.)', MAUVE),
+        (r'(Downloading file:| as )', LAVENDER),
     ]
 
     def __init__(self) -> None:
@@ -82,7 +84,12 @@ class ConsoleOutputFormatter(logging.Formatter):
         if record.exc_info:
             formatted_message += "\n" + self.formatException(record.exc_info)
 
-        return f"[{self.WHITE}{timestamp}{self.RESET}] {formatted_message}"
+        return (
+            f"{self.BRIGHT_BLACK}[{self.RESET}"  # Dark gray left parenthesis
+            f"{self.WHITE}{timestamp}{self.RESET}"  # Light gray date
+            f"{self.BRIGHT_BLACK}]{self.RESET} "  # Dark gray left parenthesis
+            f"{formatted_message}"
+        )
 
 
 def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
