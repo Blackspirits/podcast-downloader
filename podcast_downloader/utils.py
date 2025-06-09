@@ -23,6 +23,8 @@ class ConsoleOutputFormatter(logging.Formatter):
     WHITE = "\033[38;2;186;194;222m"    # #BAC2DE (Subtext1, for Timestamp)
     BRIGHT_BLACK = "\033[38;2;88;91;112m" # #585B70 (for DEBUG)
     ROSEWATER = "\033[38;2;245;224;220m" # #f5e0dc (for file paths)
+    PINK = "\033[38;2;245;194;231m"     # #f5c2e7 (for config path)
+    MAUVE = "\033[38;2;203;166;247m"    # #cba6f7 (for 'Nothing new' message)
 
     # Dictionary mapping log levels to the new color constants
     LEVEL_COLORS = {
@@ -32,11 +34,12 @@ class ConsoleOutputFormatter(logging.Formatter):
         logging.ERROR: RED,
     }
 
-    # Rules for applying specific colors to keywords inside a message
+     # General rules for keyword coloring
     KEYWORD_RULES: List[Tuple[str, str]] = [
         (r'(Loading configuration from file:|Checking|Last considered downloaded file:)', CYAN),
-        (r'(".*?")', ROSEWATER), # CHANGED: Text in quotation marks is now Rosewater
+        (r'(".*?")', ROSEWATER), # General rule for text in quotes
         (r'(Finished\.)', GREEN),
+        (r'(Nothing new to download\.)', MAUVE),
     ]
 
     def __init__(self) -> None:
@@ -52,16 +55,29 @@ class ConsoleOutputFormatter(logging.Formatter):
         else:
             message = record.msg
         
-        default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
-        
-        formatted_message = f"{default_color}{message}{self.RESET}"
-        
-        for pattern, color in self.KEYWORD_RULES:
+        # --- NEW LOGIC FOR SPECIAL CASES ---
+        # Handle the specific "Loading configuration" line first
+        if 'Loading configuration from file:' in message:
+            # This regex captures the text part and the path part separately
+            pattern = r'(Loading configuration from file: )(".*?")'
+            # Rebuild the string, coloring each part differently
             formatted_message = re.sub(
                 pattern,
-                lambda m: f"{color}{m.group(1)}{default_color}",
-                formatted_message
+                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
+                message
             )
+        else:
+            # For all other messages, use the general rules
+            default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
+            formatted_message = f"{default_color}{message}{self.RESET}"
+            
+            for pattern, color in self.KEYWORD_RULES:
+                formatted_message = re.sub(
+                    pattern,
+                    lambda m: f"{color}{m.group(1)}{default_color}",
+                    formatted_message
+                )
+        # --- END OF NEW LOGIC ---
 
         if record.exc_info:
             formatted_message += "\n" + self.formatException(record.exc_info)
