@@ -5,55 +5,41 @@ from typing import Callable, Any
 class ConsoleOutputFormatter(Formatter):
     """
     A custom logging formatter that adds color to terminal output.
-    
-    It formats messages with a gray timestamp and a message colored
-    according to the log level (e.g., blue for INFO, yellow for WARNING).
     """
-
-    # ANSI escape codes for colors
-    DATE_COLOR = "\033[2m"  # Dim gray
+    DATE_COLOR = "\033[2m"
     RESET = "\033[0m"
-
     COLORS = {
-        DEBUG: "\033[38;5;245m",    # Overlay2 (grayish)
-        INFO: "\033[38;5;67m",       # Sapphire (blue)
-        WARNING: "\033[38;5;215m",   # Peach (yellow/orange)
-        ERROR: "\033[38;5;168m",     # Maroon (red)
+        DEBUG: "\033[38;5;245m",
+        INFO: "\033[38;5;67m",
+        WARNING: "\033[38;5;215m",
+        ERROR: "\033[38;5;168m",
     }
 
     def __init__(self) -> None:
         """
-        Initializes the formatter.
-        
-        The key to fixing the ValueError is to pass a `fmt` string to the parent
-        constructor that includes `%(asctime)s`. This ensures the base formatter's
-        `usesTime()` method returns True, which correctly sets up the internal
-        time-handling machinery. Our custom `format()` method below will still
-        override the final output, but this step is crucial for initialization.
+        Initializes the formatter using modern '{'-style formatting.
+        This completely avoids the ambiguity of the '%' character that was
+        causing the ValueError.
         """
         super().__init__(
-            fmt="%(asctime)s | %(message)s",  # This `fmt` enables the time machinery.
-            datefmt="%Y-%m-%d %H:%M:%S"       # This is the date format we will use.
+            fmt="{asctime} | {message}",  # Use {}-style placeholders
+            datefmt="%Y-%m-%d %H:%M:%S",
+            style='{'  # Explicitly set the style to '{'
         )
 
     def format(self, record: LogRecord) -> str:
         """
-        Formats the log record with appropriate colors, overriding the default.
+        Formats the log record with appropriate colors.
         """
-        # 1. Get the color for the specific log level.
         level_color = self.COLORS.get(record.levelno, self.RESET)
-
-        # 2. Format the timestamp using the parent class's logic and our datefmt.
         timestamp = self.formatTime(record, self.datefmt)
-
-        # 3. Get the final formatted log message from the record.
-        message = record.getMessage()
         
-        # 4. Append exception information if it exists.
+        # In '{' style, record.message is already the fully formatted string.
+        message = record.getMessage()
+
         if record.exc_info:
             message += "\n" + self.formatException(record.exc_info)
 
-        # 5. Manually construct the final colored string with our desired layout.
         return (
             f"[{self.DATE_COLOR}{timestamp}{self.RESET}] "
             f"{level_color}{message}{self.RESET}"
@@ -63,7 +49,5 @@ class ConsoleOutputFormatter(Formatter):
 def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
     """
     Composes single-argument functions from right to left.
-
-    For example, `compose(f, g, h)` is equivalent to `lambda x: f(g(h(x)))`.
     """
     return reduce(lambda f, g: lambda x: f(g(x)), functions)
