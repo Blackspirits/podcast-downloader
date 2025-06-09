@@ -55,11 +55,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Loading configuration from file:)', BLUE),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN + r"\1\n"),
-        (r'(Nothing new for:)', BLUE),
-        (r'(-> Source URL:)', LAVENDER),
-        (r'(-> Saved as:)', LAVENDER),
-        (r'(Downloading new episode of:)', BLUE),
-        
+       
     ]
 
     def __init__(self) -> None:
@@ -110,10 +106,6 @@ class ConsoleOutputFormatter(logging.Formatter):
         elif message.startswith('Last downloaded file:'):
             filename = record.args[0] if record.args else "?"
             formatted_message = f"{self.BLUE}Last downloaded file: {self.SAPPHIRE}\"{filename}\"{self.RESET}"
-    
-        elif "Finished." in message:
-            default_color = self.LEVEL_COLORS.get(record.levelno, self.GREEN)
-            formatted_message = f"{default_color}{message}{self.RESET}\n"
     
         else:
             default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
