@@ -21,11 +21,11 @@ class ConsoleOutputFormatter(logging.Formatter):
     CYAN = "\033[38;2;148;226;213m"       # Actions
     WHITE = "\033[38;2;186;194;222m"      # Config Path
     BRIGHT_BLACK = "\033[38;2;88;91;112m" # DEBUG text
-    ROSEWATER = "\033[38;2;245;224;220m"  # Quoted Filenames/Data
+    ROSEWATER = "\033[38;2;245;224;220m"  # Quoted Podcast Names
     PINK = "\033[38;2;245;194;231m"       # Timestamp text
     MAUVE = "\033[38;2;203;166;247m"      # 'Nothing new' message
-    LAVENDER = "\033[38;2;180;190;254m"   # " -> Source URL:" and "  -> Saved as:" text
-    MAROON = "\033[38;2;235;160;172m"     # filename
+    LAVENDER = "\033[38;2;180;190;254m"   # "-> ..." text
+    MAROON = "\03g;2;235;160;172m"        # Filename on download line
     SKY = "\033[38;2;137;220;235m"        # Links/URLs
     OVERLAY2 = "\033[38;2;147;153;178m"   # Timestamp Brackets
 
@@ -42,6 +42,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Checking)', CYAN),
         (r'(Last downloaded file:)', CYAN),
         (r'(".*?")', ROSEWATER),
+        (r'(Nothing new to download\.)', MAUVE),
         (r'(Finished\.)', GREEN),
 
     ]
@@ -65,17 +66,17 @@ class ConsoleOutputFormatter(logging.Formatter):
                 message
             )
         # Handle the "Downloading file" line as another special case
-        elif record.msg.startswith('Downloading new episode of: {}'):
+        elif record.msg.startswith('{}: Downloading new episode...'):
             podcast_name, = record.args
             formatted_message = f"{self.CYAN}Downloading new episode of: {self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
         
-        elif record.msg.startswith('  -> Source URL:'):
+        elif record.msg.startswith('    -> Source URL:'):
             url, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Source URL: {self.RESET}{self.SKY}\"{url}\"{self.RESET}"
+            formatted_message = f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
 
-        elif record.msg.startswith('  -> Saved as:'):
+        elif record.msg.startswith('    -> Saved as:'):
             filename, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Saved as: {self.RESET}{self.MAROON}\"{filename}\"{self.RESET}"
+            formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.MAROON}\"{filename}\"{self.RESET}"
 
         else:
             # For all other messages, use the general keyword rules
