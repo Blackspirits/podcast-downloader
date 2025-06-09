@@ -275,7 +275,7 @@ def main():
                 download_limiter = build_only_new_entities(to_name_function, last_downloaded_file)
 
             missing_files_links = list(download_limiter(all_feed_entries))
-            logger.info('Last considered downloaded file: "{}"', last_downloaded_file or "<none>")
+            logger.info('Last downloaded file: "{}"', last_downloaded_file or "<none>")
 
             if not missing_files_links:
                 logger.info("{}: Nothing new to download.", rss_source_name)
@@ -297,11 +297,15 @@ def main():
                 wanted_podcast_file_name = to_real_podcast_file_name(rss_entry)
                 
                 logger.info(
-                    '{}: Downloading file: "{}" as "{}"',
+                    '{}: Downloading file: "{}" saved as "{}"',
                     rss_source_name,
                     rss_entry.link,
                     wanted_podcast_file_name,
                 )
+                # Replaced the single log line with three separate, clearer lines.
+                logger.info('{}: Downloading file:', rss_source_name)
+                logger.info('    -> Source URL: "{}"', rss_entry.link)
+                logger.info('    -> Saved as: "{}"', wanted_podcast_file_name)
 
                 download_podcast(rss_entry)
                 DOWNLOADS_LIMITS -= 1
