@@ -267,7 +267,7 @@ def main():
                 current_downloaded_in_feed = [f for f in all_feed_files if f in downloaded_files_set]
                 if not current_downloaded_in_feed:
                     last_downloaded_file = None
-                    download_limiter = lambda x: x # Download all
+                    download_limiter = lambda x: x # Download all rss_source_name = rss_source.ge
                 elif rss_fill_up_gaps:
                     last_downloaded_file = get_last_downloaded_file_before_gap(all_feed_files, current_downloaded_in_feed)
                 else:
