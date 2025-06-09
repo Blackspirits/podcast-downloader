@@ -299,7 +299,7 @@ def main():
                 # Replaced the single log line with three separate, clearer lines.
                 logger.info('Downloading new episode of: %s', rss_source_name)
                 logger.info('  -> Source URL: "%s"', rss_entry.link)
-                logger.info('  -> Saved as: "%s"', wanted_podcast_file_name)
+                logger.info('  -> Saved as:   "%s"', wanted_podcast_file_name)
 
                 download_podcast(rss_entry)
                 DOWNLOADS_LIMITS -= 1
