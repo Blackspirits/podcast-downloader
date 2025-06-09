@@ -225,8 +225,9 @@ def process_podcast_feed(
         download_function = partial(download_rss_entity_to_path, podcast_config["http_headers"], to_real_file_name, rss_source_path)
 
         for rss_entry in reversed(missing_files_links):
-            if current_downloads_limit <= 0: # This comparison will now always work
-            logger.info("Global download limit reached.")
+            current_downloads_limit = global_config.get("downloads_limit", sys.maxsize)
+            if current_downloads_limit <= 0: 
+                logger.info("Global download limit reached.")
             break
         
         if podcast_config["download_delay"] > 0:
