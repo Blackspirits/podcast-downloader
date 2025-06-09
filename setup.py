@@ -15,8 +15,8 @@ setup(
     name="podcast_downloader",
     
     # Updated to your GitHub user
-    author="Dawid Plocki", "Blackspirits",
-    author_email="dawid.plocki@gmail.com", "blackspirits@gmail.com",
+    author="Dawid Plocki",
+    author_email="dawid.plocki@gmail.com",
     
     description="A script for downloading podcast episodes from given RSS channels",
     long_description_content_type="text/markdown",
