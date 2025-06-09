@@ -40,7 +40,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Loading configuration from file:)', CYAN),
         (r'(Checking)', CYAN),
         (r'(Last downloaded file:)', SKY),
-        (r'(Downloading file:)', CYAN),
+        (r'(Downloading new episode...)', CYAN),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
         (r'(Nothing new\.)', MAUVE),
