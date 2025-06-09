@@ -287,7 +287,7 @@ def main():
                     last_downloaded_file = get_last_downloaded_file_before_gap(all_feed_files, current_downloaded_in_feed)
                 else:
                     last_downloaded_file = current_downloaded_in_feed[-1]
-                download_limiter = build_only_new_entities(to_name_function, last_downloaded_file)
+                download_limiter = build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries)
 
             missing_files_links = list(download_limiter(all_feed_entries))
             logger.info('Last downloaded file: "%s"', last_downloaded_file or "<none>")
