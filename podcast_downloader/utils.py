@@ -13,8 +13,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     # Using TrueColor (24-bit) codes for maximum color fidelity
     RESET = "\033[0m"
 
-    # --- Catppuccin Mocha Palette (from user's JSON scheme) ---
-    # https://github.com/catppuccin/catppuccin
+    # --- Catppuccin Mocha Palette ---
     RED = "\033[38;2;243;139;168m"      # Error
     GREEN = "\033[38;2;166;227;161m"    # Success
     YELLOW = "\033[38;2;249;226;175m"  # Warning
@@ -26,9 +25,9 @@ class ConsoleOutputFormatter(logging.Formatter):
     PINK = "\033[38;2;245;194;231m"     # Config Path
     MAUVE = "\033[38;2;203;166;247m"    # 'Nothing new' message
     LAVENDER = "\033[38;2;180;190;254m" # "saved as" text
-    SKY = "\033[38;2;137;220;235m"      # Links/URLs
+    SKY = "\033[38;2;137;220;235m"      # Links/URLs & 'Last downloaded'
 
-    # Dictionary mapping log levels to the new color constants
+    # Dictionary mapping log levels to color constants
     LEVEL_COLORS = {
         logging.DEBUG: BRIGHT_BLACK,
         logging.INFO: BLUE,
@@ -36,12 +35,14 @@ class ConsoleOutputFormatter(logging.Formatter):
         logging.ERROR: RED,
     }
 
-     # General rules for keyword coloring
+    # General rules for simple log messages
     KEYWORD_RULES: List[Tuple[str, str]] = [
-        (r'(Checking|Last considered downloaded file:)', CYAN)
-        (r'(".*?")', ROSEWATER), # General rule for text in quotes
+        (r'(Checking)', CYAN),
+        (r'(Last downloaded file:)', SKY),
+        (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
         (r'(Nothing new to download\.)', MAUVE),
+        (r'(saved as)', LAVENDER),
     ]
 
     def __init__(self) -> None:
@@ -51,14 +52,11 @@ class ConsoleOutputFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Formats the log record by applying special-case and keyword-based coloring rules."""
         timestamp = self.formatTime(record, self.datefmt)
+        
+        # Define the message once
         message = record.msg.format(*record.args) if record.args else record.msg
 
-        if record.args:
-            message = record.msg.format(*record.args)
-        else:
-            message = record.msg
-        
-         # Handle the "Loading configuration" line
+        # Handle the "Loading configuration" line as a special case
         if record.msg.startswith('Loading configuration from file:'):
             pattern = r'(Loading configuration from file: )(".*?")'
             formatted_message = re.sub(
@@ -66,19 +64,18 @@ class ConsoleOutputFormatter(logging.Formatter):
                 lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
                 message
             )
-        # Handle the "Downloading file" line
+        # Handle the "Downloading file" line as another special case
         elif record.msg.startswith('{}: Downloading file:'):
-            # Corrected to match the log message in your final __main__.py
             podcast_name, url, filename = record.args
             formatted_message = (
                 f"{self.ROSEWATER}\"{podcast_name}\"{self.RESET}: "
-                f"{self.CYAN}Downloading file: {self.RESET}"
+                f"{self.CYAN}Downloading file: {self.RESET}" # Using CYAN for the action text
                 f"{self.SKY}\"{url}\"{self.RESET} "
                 f"{self.LAVENDER}saved as{self.RESET} "
                 f"{self.ROSEWATER}\"{filename}\"{self.RESET}"
             )
         else:
-            # For all other messages, use the general rules
+            # For all other messages, use the general keyword rules
             default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
             formatted_message = f"{default_color}{message}{self.RESET}"
             
