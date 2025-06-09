@@ -55,9 +55,11 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Loading configuration from file:)', BLUE),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
-        (r'(Nothing new\.)', MAUVE),
-        (r'(Saved as)', LAVENDER),
+        (r'(Nothing new\.)', PINK),
+        (r'(-> Source URL:)', MAUVE),
+        (r'(-> Saved as:)', MAUVE),
         (r'(Downloading new episode of:)', GREEN),
+        (r'(\"{url}\")', SKY),
         
     ]
 
@@ -79,11 +81,11 @@ class ConsoleOutputFormatter(logging.Formatter):
                 lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
                 message
             )
-            
+
         # Handle the "Downloading file" line as another special case
         elif record.msg.startswith('Downloading new episode of: {}'):
             podcast_name, = record.args
-            formatted_message = f"{self.GREEN}Downloading new episode of: {self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
+            formatted_message = f"{self.GREEN}Downloading new episode of: {self.RESET}{self.SURFACE1}\"{podcast_name}\"{self.RESET}"
         
         elif record.msg.strip().startswith("    -> Source URL:") and record.args:
             url = record.args[0]
