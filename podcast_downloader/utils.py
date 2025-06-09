@@ -1,40 +1,45 @@
+import logging
 from functools import reduce
-from logging import Formatter, LogRecord, DEBUG, INFO, WARNING, ERROR
 from typing import Callable, Any
 
-class ConsoleOutputFormatter(Formatter):
+class ConsoleOutputFormatter(logging.Formatter):
     """
     A custom logging formatter that adds color to terminal output.
     """
     DATE_COLOR = "\033[2m"
     RESET = "\033[0m"
     COLORS = {
-        DEBUG: "\033[38;5;245m",
-        INFO: "\033[38;5;67m",
-        WARNING: "\033[38;5;215m",
-        ERROR: "\033[38;5;168m",
+        logging.DEBUG: "\033[38;5;245m",
+        logging.INFO: "\033[38;5;67m",
+        logging.WARNING: "\033[38;5;215m",
+        logging.ERROR: "\033[38;5;168m",
     }
 
     def __init__(self) -> None:
         """
         Initializes the formatter using modern '{'-style formatting.
-        This completely avoids the ambiguity of the '%' character that was
-        causing the ValueError.
         """
         super().__init__(
-            fmt="{message}",  # Use a simple {}-style placeholder
+            fmt="{message}",
             datefmt="%Y-%m-%d %H:%M:%S",
-            style='{'  # Explicitly set the style to '{'
+            style='{'
         )
 
-    def format(self, record: LogRecord) -> str:
+    def format(self, record: logging.LogRecord) -> str:
         """
         Formats the log record with appropriate colors.
         """
         level_color = self.COLORS.get(record.levelno, self.RESET)
         timestamp = self.formatTime(record, self.datefmt)
-        
-        message = record.getMessage()
+
+        # --- THIS IS THE FINAL FIX ---
+        # Instead of calling record.getMessage(), which uses old %-style formatting,
+        # we format the message ourselves using the modern {}-style.
+        if record.args:
+            message = record.msg.format(*record.args)
+        else:
+            message = record.msg
+        # --- END OF FIX ---
 
         if record.exc_info:
             message += "\n" + self.formatException(record.exc_info)
