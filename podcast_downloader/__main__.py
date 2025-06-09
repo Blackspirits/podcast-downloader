@@ -71,11 +71,11 @@ def download_rss_entity_to_path(
                     file.write(chunk)
 
     except requests.exceptions.RequestException as e:
-        logger.error('Network error while trying to download "{}": {}', rss_entity.link, e)
+        logger.error('Network error while trying to download "%s": %s', rss_entity.link, e)
     except IOError as e:
-        logger.error('Failed to save file "{}" to disk: {}', path_to_file, e)
+        logger.error('Failed to save file "%s" to disk: %s', path_to_file, e)
     except Exception as e:
-        logger.exception('An unexpected error occurred while downloading "{}" to "{}".', rss_entity.link, path_to_file)
+        logger.exception('An unexpected error occurred while downloading "%s" to "%s".', rss_entity.link, path_to_file)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -141,7 +141,7 @@ def configuration_to_function_rss_to_name(
         if sub_configuration[configuration.CONFIG_PODCASTS_REQUIRE_DATE]:
             configuration_value = default_template
         logger.warning(
-            'The option {} is deprecated. Please use {}: "{}"',
+            'The option % is deprecated. Please use %: "%"',
             configuration.CONFIG_PODCASTS_REQUIRE_DATE,
             configuration.CONFIG_FILE_NAME_TEMPLATE,
             default_template,
@@ -170,7 +170,7 @@ def load_the_last_run_date_store_now(marker_file_path_str: str, now: datetime):
     access_time_stamp = marker_file.stat().st_atime
     access_time = datetime.fromtimestamp(access_time_stamp)
     logger.info(
-        "The last time the script was run: {}",
+        "The last time the script was run: %",
         access_time.strftime("%Y-%m-%d %H:%M:%S"),
     )
 
@@ -197,12 +197,12 @@ def main():
     config_file_name = PARAMETERS_CONFIGURATION.get("config", "~/.podcast_downloader_config.json")
     
     config_path = Path(config_file_name).expanduser()
-    logger.info('Loading configuration from file: "{}"', config_path)
+    logger.info('Loading configuration from file: "%s"', config_path)
     
     try:
         CONFIGURATION_FROM_FILE = load_configuration_file(config_path)
     except (FileNotFoundError, ValueError) as e:
-        logger.warning("Could not load configuration file: {}. Continuing with defaults.", e)
+        logger.warning("Could not load configuration file: %s. Continuing with defaults.", e)
         CONFIGURATION_FROM_FILE = {}
 
 
@@ -213,7 +213,7 @@ def main():
     try:
         configuration_verification(CONFIGURATION)
     except ConfigurationError as e:
-        logger.error("There is a problem with the configuration: {}", e)
+        logger.error("There is a problem with the configuration: %s", e)
         sys.exit(1)
 
     RSS_SOURCES = CONFIGURATION[configuration.CONFIG_PODCASTS]
@@ -229,17 +229,17 @@ def main():
             rss_source_link = rss_source[configuration.CONFIG_PODCASTS_RSS_LINK]
             
             if rss_source.get(configuration.CONFIG_PODCASTS_DISABLE, False):
-                logger.info('Skipping "{}" (disabled in config)', rss_source_name or rss_source_link)
+                logger.info('Skipping "%s" (disabled in config)', rss_source_name or rss_source_link)
                 continue
 
             feed = load_feed(rss_source_link)
             if feed.bozo and not feed.entries:
-                logger.error("Error while checking link: '{}': {}", rss_source_link, feed.bozo_exception)
+                logger.error("Error while checking link: '%s': %s", rss_source_link, feed.bozo_exception)
                 continue
 
             if not rss_source_name:
                 rss_source_name = get_feed_title_from_feed(feed)
-            logger.info('Checking "{}"', rss_source_name)
+            logger.info('Checking "%s"', rss_source_name)
             
             rss_file_name_template_value = rss_source.get(configuration.CONFIG_FILE_NAME_TEMPLATE, CONFIGURATION[configuration.CONFIG_FILE_NAME_TEMPLATE])
             rss_on_empty_directory = rss_source.get(configuration.CONFIG_IF_DIRECTORY_EMPTY, CONFIGURATION[configuration.CONFIG_IF_DIRECTORY_EMPTY])
@@ -275,10 +275,10 @@ def main():
                 download_limiter = build_only_new_entities(to_name_function, last_downloaded_file)
 
             missing_files_links = list(download_limiter(all_feed_entries))
-            logger.info('Last downloaded file: "{}"', last_downloaded_file or "<none>")
+            logger.info('Last downloaded file: "%s"', last_downloaded_file or "<none>")
 
             if not missing_files_links:
-                logger.info("Nothing new for: {}", rss_source_name)
+                logger.info("Nothing new for: %s", rss_source_name)
                 continue
             
             download_podcast = partial(download_rss_entity_to_path, rss_https_header, to_real_podcast_file_name, rss_source_path)
@@ -290,22 +290,22 @@ def main():
                     break
 
                 if rss_download_delay > 0 and not first_element:
-                    logger.info("Waiting {} second(s) before next download...", rss_download_delay)
+                    logger.info("Waiting %d second(s) before next download...", rss_download_delay)
                     time.sleep(rss_download_delay)
                 first_element = False
 
                 wanted_podcast_file_name = to_real_podcast_file_name(rss_entry)
                 
                 # Replaced the single log line with three separate, clearer lines.
-                logger.info('Downloading new episode of: {}', rss_source_name)
-                logger.info('  -> Source URL: "{}"', rss_entry.link)
-                logger.info('  -> Saved as: "{}"', wanted_podcast_file_name)
+                logger.info('Downloading new episode of: %s', rss_source_name)
+                logger.info('  -> Source URL: "%s"', rss_entry.link)
+                logger.info('  -> Saved as: "%s"', wanted_podcast_file_name)
 
                 download_podcast(rss_entry)
                 DOWNLOADS_LIMITS -= 1
         
         except Exception as e:
-            logger.error('Critical failure while processing feed "{}". Error: {}', rss_source.get('name', rss_source.get('rss_link')), e)
+            logger.error('Critical failure while processing feed "%s". Error: %s', rss_source.get('name', rss_source.get('rss_link')), e)
 
 
 if __name__ == "__main__":
