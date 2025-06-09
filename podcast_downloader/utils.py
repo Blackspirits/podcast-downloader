@@ -22,7 +22,7 @@ class ConsoleOutputFormatter(Formatter):
         causing the ValueError.
         """
         super().__init__(
-            fmt="{asctime} | {message}",  # Use {}-style placeholders
+            fmt="{message}",  # Use a simple {}-style placeholder
             datefmt="%Y-%m-%d %H:%M:%S",
             style='{'  # Explicitly set the style to '{'
         )
@@ -34,7 +34,6 @@ class ConsoleOutputFormatter(Formatter):
         level_color = self.COLORS.get(record.levelno, self.RESET)
         timestamp = self.formatTime(record, self.datefmt)
         
-        # In '{' style, record.message is already the fully formatted string.
         message = record.getMessage()
 
         if record.exc_info:
