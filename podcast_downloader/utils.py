@@ -48,7 +48,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(    -> Saved as:)', LAVENDER),
     ]
 
- def __init__(self) -> None:
+     def __init__(self) -> None:
         """Initializes the formatter."""
         super().__init__(fmt="{message}", datefmt="%Y-%m-%d %H:%M:%S", style='{')
 
