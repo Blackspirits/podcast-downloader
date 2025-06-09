@@ -55,9 +55,9 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Loading configuration from file:)', BLUE),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN + r"\1\n"),
-        (r'(Nothing new for:)', PINK),
-        (r'(-> Source URL:)', MAUVE),
-        (r'(-> Saved as:)', MAUVE),
+        (r'(Nothing new for:)', BLUE),
+        (r'(-> Source URL:)', LAVENDER),
+        (r'(-> Saved as:)', LAVENDER),
         (r'(Downloading new episode of:)', BLUE),
         
     ]
@@ -75,7 +75,7 @@ class ConsoleOutputFormatter(logging.Formatter):
             pattern = r'(Loading configuration from file: )(".*?")'
             formatted_message = re.sub(
                 pattern,
-                lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
+                lambda m: f"{self.BLUE}{m.group(1)}{self.PINK}{m.group(2)}{self.RESET}",
                 message
             )
 
@@ -83,33 +83,33 @@ class ConsoleOutputFormatter(logging.Formatter):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"{self.GREEN}Downloading new episode of: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
+                f"{self.BLUE}Downloading new episode of: {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
 
         elif message.startswith('Nothing new for:'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"{self.BLUE}Nothing new for: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
+                f"{self.BLUE}Nothing new for: {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
     
         elif message.startswith("    -> Source URL:"):
             url = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"{self.LAVENDER}    -> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+                f"{self.LAVENDER}    -> Source URL: {self.SKY}\"{url}\"{self.RESET}"
             )
     
-        elif message.startswith('    -> Saved as:'):
+        elif message.startswith('    -> Saved as:  '):
             filename = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"{self.LAVENDER}    -> Saved as:{self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+                f"{self.LAVENDER}    -> Saved as:  {self.SAPPHIRE}\"{filename}\"{self.RESET}"
             )
     
         elif message.startswith('Last downloaded file:'):
             filename = record.args[0] if record.args else "?"
-            formatted_message = f"{self.BLUE}Last downloaded file: {self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+            formatted_message = f"{self.BLUE}Last downloaded file: {self.SAPPHIRE}\"{filename}\"{self.RESET}"
     
         elif "Finished." in message:
             default_color = self.LEVEL_COLORS.get(record.levelno, self.GREEN)
