@@ -296,12 +296,6 @@ def main():
 
                 wanted_podcast_file_name = to_real_podcast_file_name(rss_entry)
                 
-                logger.info(
-                    '{}: Downloading file: "{}" saved as "{}"',
-                    rss_source_name,
-                    rss_entry.link,
-                    wanted_podcast_file_name,
-                )
                 # Replaced the single log line with three separate, clearer lines.
                 logger.info('{}: Downloading file:', rss_source_name)
                 logger.info('    -> Source URL: "{}"', rss_entry.link)
