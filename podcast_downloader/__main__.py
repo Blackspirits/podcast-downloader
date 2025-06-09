@@ -10,8 +10,6 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Tuple
 from datetime import datetime
 
-def main():
-
 from . import configuration
 from .configuration import (
     ConfigurationError,
