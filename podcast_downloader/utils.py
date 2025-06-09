@@ -68,10 +68,8 @@ class ConsoleOutputFormatter(logging.Formatter):
         super().__init__(fmt="{message}", datefmt="%Y-%m-%d %H:%M:%S", style='{')
 
     def format(self, record: logging.LogRecord) -> str:
-        """Formats the log record by applying special-case and keyword-based coloring rules."""
-        timestamp = self.formatTime(record, self.datefmt)
-        
-        message = record.msg.format(*record.args) if record.args else record.msg
+    timestamp = self.formatTime(record, self.datefmt)
+    message = record.getMessage()
 
         # Handle the "Loading configuration" line as a special case
         if record.msg.startswith('Loading configuration from file:'):
@@ -83,33 +81,31 @@ class ConsoleOutputFormatter(logging.Formatter):
             )
 
         # Handle the "Downloading file" line as another special case
-        elif record.msg.startswith('Downloading new episode of: {}'):
-            podcast_name, = record.args
-            formatted_message = f"{self.GREEN}Downloading new episode of: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
-        
-        elif record.msg.startswith("    -> Source URL:"):
-            url, = record.args
-            formatted_message = f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
-
-        elif record.msg.startswith('    -> Saved as:'):
-            filename, = record.args
-            formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
-
-        elif record.msg.startswith('Last downloaded file:'):
-            filename, = record.args
-            formatted_message = f"{self.BLUE}Last downloaded file: {self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
-
-        else:
-            # For all other messages, use the general keyword rules
-            default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
-            formatted_message = f"{default_color}{message}{self.RESET}"
-            
-            for pattern, color in self.KEYWORD_RULES:
-                 formatted_message = re.sub(
+       elif message.startswith('Downloading new episode of:'):
+        podcast_name = record.args[0] if record.args else "?"
+        formatted_message = f"{self.GREEN}Downloading new episode of: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
+    elif message.startswith("    -> Source URL:"):
+        url = record.args[0] if record.args else "?"
+        formatted_message = f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+    elif message.startswith('    -> Saved as:'):
+        filename = record.args[0] if record.args else "?"
+        formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+    elif message.startswith('Last downloaded file:'):
+        filename = record.args[0] if record.args else "?"
+        formatted_message = f"{self.BLUE}Last downloaded file: {self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+    else:
+        default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
+        formatted_message = f"{default_color}{message}{self.RESET}"
+        for pattern, color in self.KEYWORD_RULES:
+            try:
+                formatted_message = re.sub(
                     pattern,
                     lambda m: f"{color}{m.group(1)}{default_color}",
                     formatted_message
                 )
+            except re.error as e:
+                print(f"[Formatter] Padrão inválido ignorado: {pattern} ({e})")
+
 
         if record.exc_info:
             formatted_message += "\n" + self.formatException(record.exc_info)
