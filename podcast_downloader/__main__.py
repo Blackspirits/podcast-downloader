@@ -41,8 +41,6 @@ from .rss import (
 from .utils import ConsoleOutputFormatter, compose
 from logging.handlers import TimedRotatingFileHandler
 
-─── GLOBAL LOGGER SETUP ───────────────────────────────────────────────────────
-
 logger = logging.getLogger("podcast_downloader")
 logger.setLevel(logging.DEBUG)  # capta tudo; depois cada handler filtra
 
