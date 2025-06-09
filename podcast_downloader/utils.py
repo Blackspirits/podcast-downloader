@@ -1,10 +1,9 @@
 # (With Catppuccin Mocha Theme)
-import os
+
 import logging
 import re
 from functools import reduce
 from typing import Callable, Any, List, Tuple
-from logging.handlers import TimedRotatingFileHandler
 
 class ConsoleOutputFormatter(logging.Formatter):
     """
@@ -146,32 +145,8 @@ class ConsoleOutputFormatter(logging.Formatter):
         ]
         return "\n".join(colored_lines)
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-
-# Console handler com formatter colorido
-console_handler = logging.StreamHandler()
-console_formatter = ConsoleOutputFormatter()
-console_handler.setFormatter(console_formatter)
-logger.addHandler(console_handler)
-
-# File handler com rotação diária
-log_dir = "logs"
-os.makedirs(log_dir, exist_ok=True)
-log_filename = os.path.join(log_dir, "app_log.log")
-
-file_handler = TimedRotatingFileHandler(
-    log_filename,
-    when="midnight",
-    interval=1,
-    backupCount=7,
-    encoding='utf-8'
-)
-file_handler.setLevel(logging.INFO)
-file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(file_formatter)
-logger.addHandler(file_handler)
-
 def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
     """Composes single-argument functions from right to left."""
+    if not functions:
+        raise ValueError("At least one function must be provided.")
     return reduce(lambda f, g: lambda x: f(g(x)), functions)
