@@ -83,7 +83,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     def __init__(self) -> None:
         # CORRECTED: Only pass datefmt, as you are fully overriding the format method.
         # This resolves the KeyError/ValueError.
-        super().__init__(datefmt="%Y-%m-%d %H:%M:%S")
+        super().__init__(datefmt="%Y-%m-%d %H:%M:%S") 
 
         # OPTIONAL: Pre-compile regex patterns for efficiency if rules are extensive/used frequently
         self._compiled_keyword_rules = [(re.compile(pattern), color) for pattern, color in self.KEYWORD_RULES]
