@@ -58,8 +58,8 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Nothing new\.)', PINK),
         (r'(-> Source URL:)', MAUVE),
         (r'(-> Saved as:)', MAUVE),
-        (r'(Downloading new episode of:)', GREEN),
-        (r'(\"{url}\")', SKY),
+        (r'(Downloading new episode of:)', BLUE),
+        (r'(\{url}\)', SKY),
         
     ]
 
@@ -85,15 +85,15 @@ class ConsoleOutputFormatter(logging.Formatter):
         # Handle the "Downloading file" line as another special case
         elif record.msg.startswith('Downloading new episode of: {}'):
             podcast_name, = record.args
-            formatted_message = f"{self.GREEN}Downloading new episode of: {self.RESET}{self.SURFACE1}\"{podcast_name}\"{self.RESET}"
+            formatted_message = f"{self.GREEN}Downloading new episode of: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
         
-        elif record.msg.strip().startswith("    -> Source URL:") and record.args:
-            url = record.args[0]
-            return f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+        elif record.msg.startswith("    -> Source URL:"):
+            url, = record.args
+            formatted_message = f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
 
         elif record.msg.startswith('    -> Saved as:'):
             filename, = record.args
-            formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.TEAL}\"{filename}\"{self.RESET}"
+            formatted_message = f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
 
         elif record.msg.startswith('Last downloaded file:'):
             filename, = record.args
