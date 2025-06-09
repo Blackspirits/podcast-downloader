@@ -28,7 +28,6 @@ class ConsoleOutputFormatter(logging.Formatter):
     MAROON = "\033[38;2;235;160;172m"
     SKY = "\033[38;2;137;220;235m"      # Links/URLs
     PINK = "\033[38;2;245;194;231m"
-    PEACH = "\033[38;2;243;139;168m"
     BASE = "\033[38;2;30;30;46m"         # Background
     TEXT = "\033[38;2;205;214;244m"       # Foreground text
     SURFACE0 = "\033[38;2;49;50;68m"     # A darker surface color
@@ -37,6 +36,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     OVERLAY0 = "\033[38;2;108;112;134m"
     OVERLAY1 = "\033[38;2;127;132;156m"
     OVERLAY2 = "\033[38;2;147;153;178m"
+    PEACH = "\033[38;2;255;180;128m"
 
     # Dictionary mapping log levels to color constants
     LEVEL_COLORS = {
@@ -54,7 +54,8 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Finished\.)', GREEN),
         (r'(Nothing new to download\.)', MAUVE),
         (r'(Saved as)', LAVENDER),
-        (r'(Loading configuration from file:)', BLUE),
+        (r'(Downloading new episode of:)', GREEN),
+        
     ]
 
     def __init__(self) -> None:
@@ -72,22 +73,22 @@ class ConsoleOutputFormatter(logging.Formatter):
             pattern = r'(Loading configuration from file: )(".*?")'
             formatted_message = re.sub(
                 pattern,
-                lambda m: f"{self.BLUE}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
+                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
                 message
             )
         # Handle the "Downloading file" line as another special case
-        lif record.msg.strip().startswith('Downloading new episode of: {}') and record.args:
-            podcast_name = record.args[0]
-            return f"{self.BLUE}Downloading new episode of:{self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
+        elif record.msg.startswith('Downloading new episode of: {}'):
+            podcast_name, = record.args
+            formatted_message = f"{self.GREEN}Downloading new episode of:{self.RESET}{self.ROSEWATER}\"{podcast_name}\"{self.RESET}"
         
         elif record.msg.strip().startswith("-> Source URL:") and record.args:
             url = record.args[0]
             return f"  {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
 
 
-        elif record.msg.strip().startswith('  -> Saved as:') and record.args:
-            filename = record.args[0]
-            return f"  {self.LAVENDER}-> Saved as:{self.RESET} {self.TEXT}\"{filename}\"{self.RESET}"
+        elif record.msg.startswith('  -> Saved as:'):
+            filename, = record.args
+            formatted_message = f"  {self.LAVENDER}-> Saved as:{self.RESET} {self.TEXT}\"{filename}\"{self.RESET}"
 
         else:
             # For all other messages, use the general keyword rules
@@ -106,7 +107,7 @@ class ConsoleOutputFormatter(logging.Formatter):
 
         return (
             f"{self.BASE}[{self.RESET}"
-            f"{self.Peach}{timestamp}{self.RESET}"
+            f"{self.PEACH}{timestamp}{self.RESET}"
             f"{self.BASE}]{self.RESET} "
             f"{formatted_message}"
         )
