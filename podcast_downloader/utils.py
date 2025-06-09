@@ -55,11 +55,10 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Loading configuration from file:)', BLUE),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN + r"\1\n"),
-        (r'(Nothing new\.)', PINK),
+        (r'(Nothing new for:)', PINK),
         (r'(-> Source URL:)', MAUVE),
         (r'(-> Saved as:)', MAUVE),
         (r'(Downloading new episode of:)', BLUE),
-        (r'(\{url}\)', SKY),
         
     ]
 
@@ -86,19 +85,26 @@ class ConsoleOutputFormatter(logging.Formatter):
                 "\n"
                 f"{self.GREEN}Downloading new episode of: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
+
+        elif message.startswith('Nothing new for:'):
+            podcast_name = record.args[0] if record.args else "?"
+            formatted_message = (
+                "\n"
+                f"{self.BLUE}Nothing new for: {self.RESET}{self.GREEN}\"{podcast_name}\"{self.RESET}"
+            )
     
         elif message.startswith("    -> Source URL:"):
             url = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"    {self.LAVENDER}-> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
+                f"{self.LAVENDER}    -> Source URL:{self.RESET} {self.SKY}\"{url}\"{self.RESET}"
             )
     
         elif message.startswith('    -> Saved as:'):
             filename = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
-                f"    {self.LAVENDER}-> Saved as:{self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+                f"{self.LAVENDER}    -> Saved as:{self.RESET} {self.SAPPHIRE}\"{filename}\"{self.RESET}"
             )
     
         elif message.startswith('Last downloaded file:'):
@@ -129,12 +135,12 @@ class ConsoleOutputFormatter(logging.Formatter):
         if record.exc_info:
             formatted_message += "\n" + self.formatException(record.exc_info)
     
-        return (
-            f"{self.MAROON}[{self.RESET}"
-            f"{self.PEACH}{timestamp}{self.RESET}"
-            f"{self.MAROON}]{self.RESET} "
-            f"{formatted_message}"
-        )
+        lines = formatted_message.splitlines()
+        colored_lines = [
+            f"{self.MAROON}[{self.RESET}{self.PEACH}{timestamp}{self.RESET}{self.MAROON}]{self.RESET} {line}"
+            for line in lines if line.strip() != ""
+        ]
+        return "\n".join(colored_lines)
 
 
 def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
