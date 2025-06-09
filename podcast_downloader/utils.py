@@ -56,8 +56,8 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
         (r'(Nothing new for:)', BLUE),
-        (r'(-> Source URL:)', MAUVE),
-        (r'(-> Saved as:)', MAUVE),
+        (r'(-> Source URL: )(".*?")', MAUVE),
+        (r'(-> Saved as: )(".*?")', MAUVE),
         (r'(Downloading new episode of:)', BLUE),
        
     ]
@@ -107,7 +107,7 @@ class ConsoleOutputFormatter(logging.Formatter):
                 f"{self.MAUVE}    -> Source URL: {self.SKY}\"{url}\"{self.RESET}"
             )
     
-        elif message.startswith('    -> Saved as:  '):
+        elif message.startswith('    -> Saved as:'):
             filename = record.args[0] if record.args else "?"
             formatted_message = (
                 "\n"
