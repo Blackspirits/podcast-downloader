@@ -227,7 +227,7 @@ def main():
 
                 wanted_podcast_file_name = to_real_podcast_file_name(rss_entry)
                 
-                logger.info('{}: Downloading new episode...', rss_source_name)
+                logger.info('Downloading new episode of: {}', rss_source_name)
                 logger.info('    -> Source URL: "{}"', rss_entry.link)
                 logger.info('    -> Saved as: "{}"', wanted_podcast_file_name)
                 
