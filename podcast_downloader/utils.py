@@ -37,54 +37,35 @@ class ConsoleOutputFormatter(logging.Formatter):
 
     # General rules for simple log messages
     KEYWORD_RULES: List[Tuple[str, str]] = [
-        (r'(Checking|Last downloaded file:)', CYAN),
+        (r'(Loading configuration from file:)', CYAN),
+        (r'(Checking)', CYAN),
         (r'(Last downloaded file:)', SKY),
+        (r'(Downloading file:)', CYAN),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
         (r'(Nothing new\.)', MAUVE),
-        (r'(Source URL:|Saved as:)', LAVENDER),
+        (r'(    -> Source URL:)', LAVENDER),
+        (r'(    -> Saved as:)', LAVENDER),
     ]
 
-    def __init__(self) -> None:
+ def __init__(self) -> None:
         """Initializes the formatter."""
         super().__init__(fmt="{message}", datefmt="%Y-%m-%d %H:%M:%S", style='{')
 
     def format(self, record: logging.LogRecord) -> str:
-        """Formats the log record by applying special-case and keyword-based coloring rules."""
+        """Formats the log record by applying keyword-based coloring rules."""
         timestamp = self.formatTime(record, self.datefmt)
-        
-        # Define the message once
         message = record.msg.format(*record.args) if record.args else record.msg
-
-        # Handle the "Loading configuration" line as a special case
-        if record.msg.startswith('Loading configuration from file:'):
-            pattern = r'(Loading configuration from file: )(".*?")'
-            formatted_message = re.sub(
+        
+        default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
+        formatted_message = f"{default_color}{message}{self.RESET}"
+        
+        for pattern, color in self.KEYWORD_RULES:
+             formatted_message = re.sub(
                 pattern,
-                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
-                message
+                lambda m: f"{color}{m.group(1)}{default_color}",
+                formatted_message
             )
-        # Handle the "Downloading file" line as another special case
-        elif record.msg.startswith('{}: Downloading file:'):
-            podcast_name, url, filename = record.args
-            formatted_message = (
-                f"{self.ROSEWATER}\"{podcast_name}\"{self.RESET}: "
-                f"{self.BLUE}Downloading file: {self.RESET}" # Using CYAN for the action text
-                f"{self.SKY}\"{url}\"{self.RESET} "
-                f"{self.LAVENDER}saved as{self.RESET} "
-                f"{self.ROSEWATER}\"{filename}\"{self.RESET}"
-            )
-        else:
-            # For all other messages, use the general keyword rules
-            default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
-            formatted_message = f"{default_color}{message}{self.RESET}"
-            
-            for pattern, color in self.KEYWORD_RULES:
-                 formatted_message = re.sub(
-                    pattern,
-                    lambda m: f"{color}{m.group(1)}{default_color}",
-                    formatted_message
-                )
 
         if record.exc_info:
             formatted_message += "\n" + self.formatException(record.exc_info)
