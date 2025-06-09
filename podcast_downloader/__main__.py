@@ -39,14 +39,32 @@ from .rss import (
     only_last_n_entities,
 )
 from .utils import ConsoleOutputFormatter, compose
+from logging.handlers import TimedRotatingFileHandler
 
-# Single, global logger configuration
+─── GLOBAL LOGGER SETUP ───────────────────────────────────────────────────────
+
 logger = logging.getLogger("podcast_downloader")
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)  # capta tudo; depois cada handler filtra
+
+# só adiciona handlers se ainda não tiver nenhum
 if not logger.handlers:
-    handler = logging.StreamHandler(stream=sys.stdout)
-    handler.setFormatter(ConsoleOutputFormatter())
-    logger.addHandler(handler)
+    # 1) Console handler com cores
+    console_h = logging.StreamHandler(sys.stdout)
+    console_h.setLevel(logging.DEBUG)
+    console_h.setFormatter(ConsoleOutputFormatter())
+    logger.addHandler(console_h)
+
+    # 2) File handler com rotação diária (mantém 7 dias)
+    log_dir = os.path.join(os.getcwd(), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    file_h = TimedRotatingFileHandler(
+        os.path.join(log_dir, "app_log.log"),
+        when="midnight", interval=1, backupCount=7, encoding="utf-8"
+    )
+    file_h.setLevel(logging.INFO)
+    # sem cores no ficheiro
+    file_h.setFormatter(logging.Formatter("%(asctime)s %(levelname)-5s %(message)s"))
+    logger.addHandler(file_h)
 
 def sanitize_filename(filename: str) -> str:
     """Remove illegal characters from a filename."""
