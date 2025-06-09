@@ -14,19 +14,20 @@ class ConsoleOutputFormatter(logging.Formatter):
     RESET = "\033[0m"
 
     # --- Catppuccin Mocha Palette ---
-    RED = "\033[38;2;243;139;168m"      # Error
-    GREEN = "\033[38;2;166;227;161m"    # Success
-    YELLOW = "\033[38;2;249;226;175m"  # Warning
-    BLUE = "\033[38;2;137;180;250m"     # Default INFO
-    CYAN = "\033[38;2;148;226;213m"     # Actions
-    WHITE = "\033[38;2;186;194;222m"    # Timestamp text
-    BRIGHT_BLACK = "\033[38;2;88;91;112m" # DEBUG text & Timestamp brackets
-    ROSEWATER = "\033[38;2;245;224;220m" # Quoted Filenames/Data
-    PINK = "\033[38;2;245;194;231m"     # Config Path
-    MAUVE = "\033[38;2;203;166;247m"    # 'Nothing new' message
-    LAVENDER = "\033[38;2;180;190;254m" # "saved as" text
-    SKY = "\033[38;2;137;220;235m"      # Links/URLs
-    OVERLAY2 = "\033[38;2;147;153;178m" # #9399b2 (Timestamp Brackets)
+    RED = "\033[38;2;243;139;168m"        # Error
+    GREEN = "\033[38;2;166;227;161m"      # Success
+    YELLOW = "\033[38;2;249;226;175m"     # Warning
+    BLUE = "\033[38;2;137;180;250m"       # Default INFO
+    CYAN = "\033[38;2;148;226;213m"       # Actions
+    WHITE = "\033[38;2;186;194;222m"      # Config Path
+    BRIGHT_BLACK = "\033[38;2;88;91;112m" # DEBUG text
+    ROSEWATER = "\033[38;2;245;224;220m"  # Quoted Filenames/Data
+    PINK = "\033[38;2;245;194;231m"       # Timestamp text
+    MAUVE = "\033[38;2;203;166;247m"      # 'Nothing new' message
+    LAVENDER = "\033[38;2;180;190;254m"   # " -> Source URL:" and "  -> Saved as:" text
+    MAROON = "\033[38;2;235;160;172m"     # filename
+    SKY = "\033[38;2;137;220;235m"        # Links/URLs
+    OVERLAY2 = "\033[38;2;147;153;178m"   # Timestamp Brackets
 
     # Dictionary mapping log levels to color constants
     LEVEL_COLORS = {
@@ -42,9 +43,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(Last downloaded file:)', CYAN),
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
-        (r'(Nothing new to download\.)', MAUVE),
-        (r'(Downloading new episode of:\.)', MAUVE),
-        (r'(-> Saved as:)', MAUVE),
+
     ]
 
     def __init__(self) -> None:
@@ -62,7 +61,7 @@ class ConsoleOutputFormatter(logging.Formatter):
             pattern = r'(Loading configuration from file: )(".*?")'
             formatted_message = re.sub(
                 pattern,
-                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.PINK}{m.group(2)}{self.RESET}",
+                lambda m: f"{self.CYAN}{m.group(1)}{self.RESET}{self.WHITE}{m.group(2)}{self.RESET}",
                 message
             )
         # Handle the "Downloading file" line as another special case
@@ -76,7 +75,7 @@ class ConsoleOutputFormatter(logging.Formatter):
 
         elif record.msg.startswith('  -> Saved as:'):
             filename, = record.args
-            formatted_message = f"  {self.LAVENDER}-> Saved as: {self.RESET}{self.ROSEWATER}\"{filename}\"{self.RESET}"
+            formatted_message = f"  {self.LAVENDER}-> Saved as: {self.RESET}{self.MAROON}\"{filename}\"{self.RESET}"
 
         else:
             # For all other messages, use the general keyword rules
@@ -95,7 +94,7 @@ class ConsoleOutputFormatter(logging.Formatter):
 
         return (
             f"{self.OVERLAY2}[{self.RESET}"
-            f"{self.WHITE}{timestamp}{self.RESET}"
+            f"{self.PINK}{timestamp}{self.RESET}"
             f"{self.OVERLAY2}]{self.RESET} "
             f"{formatted_message}"
         )
