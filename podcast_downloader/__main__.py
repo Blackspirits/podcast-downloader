@@ -4,12 +4,13 @@ import sys
 import time
 import argparse
 import logging
+import requests
 from functools import partial
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Tuple
 from datetime import datetime
 
-import requests
+def main():
 
 from . import configuration
 from .configuration import (
@@ -304,6 +305,11 @@ def main():
                 if DOWNLOADS_LIMITS <= 0:
                     logger.info("Global download limit reached.")
                     break
+
+                # Extrai a data de publicação do RSS entry
+                pub_date = getattr(rss_entry, "published", None)
+                if not pub_date and hasattr(rss_entry, "published_parsed"):
+                    pub_date = time.strftime("%Y-%m-%d %H:%M:%S", rss_entry.published_parsed)
 
                 if rss_download_delay > 0 and not first_element:
                     logger.info("Waiting %d second(s) before next download...", rss_download_delay)
