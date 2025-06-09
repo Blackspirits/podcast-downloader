@@ -42,7 +42,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         (r'(".*?")', ROSEWATER),
         (r'(Finished\.)', GREEN),
         (r'(Nothing new to download\.)', MAUVE),
-        (r'(saved as)', LAVENDER),
+        (r'(Source URL:|Saved as:)', LAVENDER),
     ]
 
     def __init__(self) -> None:
