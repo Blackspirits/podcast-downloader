@@ -54,17 +54,7 @@ class ConsoleOutputFormatter(logging.Formatter):
         # Padrões que podem ser aplicados em mensagens genéricas
         # Note que se estes patterns corresponderem a uma mensagem já tratada por um elif acima,
         # este loop não será executado para essa mensagem.
-        (r'(Last downloaded file:)', BLUE), # Já tem um elif, mas se estiver aqui, ele é genérico.
-        (r'(Loading configuration from file:)', BLUE), # Já tem um elif
         (r'(".*?")', ROSEWATER), # Aspas genéricas
-        (r'(Finished\.)', GREEN),
-        (r'(Nothing new for:)', BLUE),
-        (r'(-> Source URL: )(".*?")', LAVENDER), # Também tem elif, mas aqui para genérico.
-        (r'(-> Saved as: )(".*?")', LAVENDER), # Também tem elif, mas aqui para genérico.
-        (r'(Downloading new episode of:)', BLUE), # Também tem elif, mas aqui para genérico.
-        (r'(Checking)', BLUE), # Também tem elif, mas aqui para genérico.
-        # Adicione mais regras genéricas se necessário, por exemplo, para timestamps dentro de mensagens
-        (r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})', WHITE), # Exemplo: colorir timestamps genéricos
     ]
 
     def __init__(self) -> None:
@@ -92,26 +82,26 @@ class ConsoleOutputFormatter(logging.Formatter):
         elif message.startswith('Downloading new episode of:'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"\n{self.BLUE}Downloading new episode of: {self.GREEN}\"{podcast_name}\"{self.RESET}"
+                f"{self.BLUE}Downloading new episode of: {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
 
         elif message.startswith('Nothing new for:'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"\n{self.BLUE}Nothing new for: {self.MAUVE}\"{podcast_name}\"{self.RESET}" # Use MAUVE para 'Nothing new'
+                f"{self.BLUE}Nothing new for: {self.MAUVE}\"{podcast_name}\"{self.RESET}" # Use MAUVE para 'Nothing new'
             )
 
         elif message.startswith('Checking'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"\n{self.BLUE}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
+                f"{self.BLUE}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
         
         elif message.startswith("    -> Source URL:"):
             url = record.args[0] if record.args else "?"
             # Corrigido: Garante que o LAVENDER fecha antes de SKY, e SKY fecha antes de RESET final da linha.
             formatted_message = (
-                f"\n{self.LAVENDER}    -> Source URL: {self.RESET}" # Texto inicial LAVENDER e RESET
+                f"{self.LAVENDER}    -> Source URL: {self.RESET}" # Texto inicial LAVENDER e RESET
                 f"{self.SKY}\"{url}\"{self.RESET}"                  # URL SKY e RESET
             )
         
