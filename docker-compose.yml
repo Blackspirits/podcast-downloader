@@ -5,3 +5,42 @@ services:
       context: .
     volumes:
       - .:/app/
+    # The ‘command’ here is optional.
+    # Since CMD in the Dockerfile already runs 'black . && python -m unittest discover -s tests -p “*_test.py”',
+    # this service will simply run that standard Dockerfile command.
+    # If you only wanted to run the tests without black, you could specify:
+    # command: python -m unittest discover -s tests -p “*_test.py”Other dependencies of your project
+
+  app: # Service to run the podcast downloader
+    build:
+      context: .
+    volumes:
+      - .:/app/
+      # Set up a volume for the podcasts, so that they persist outside the container
+      # Create a ‘podcasts_data’ folder on your host for this.
+      # The downloaded podcasts will be stored here.
+      - ./podcasts_data:/app/podcasts
+    # Command to start the application.
+    # This overwrites the Dockerfile's default CMD (which is for testing).
+    # Assuming your default configuration file is ~/.podcast_downloader_config.json
+    command: python -m podcast_downloader --config /app/.podcast_downloader_config.json
+    # If the configuration file is in the root of the project and is copied, the path can be:
+    # command: python -m podcast_downloader --config /app/podcast_downloader_config.json
+    
+    # For debugging or to enter the container:
+    # entrypoint: /bin/bash
+    # stdin_open: true
+    # tty: true
+    
+  debug: # Example of a service to run the debug script
+      build:
+        context: .
+      volumes:
+        - .:/app/ # Assemble the entire project
+        - ./config.json:/app/a.json # Ensure that ‘a.json’ is available in the container
+                                    # Or use a volume if the a.json file is elsewhere
+      command: python /app/scripts/debug_feed.py
+      # Optional: to keep the container open for post-run inspection to keep the container open for post-run inspection
+      # entrypoint: /bin/bash
+      # stdin_open: true
+      # tty: true

@@ -1,48 +1,32 @@
 import os
-from setuptools import setup, find_packages
+from setuptools import setup
 
 
 def read(file_name):
-    """Safely read the content of a file."""
-    # This construct ensures the file is closed properly
-    with open(os.path.join(os.path.dirname(__file__), file_name), encoding="utf-8") as f:
-        return f.read()
+    return open(os.path.join(os.path.dirname(__file__), file_name)).read()
 
+# Function to read dependencies from requirements.txt
+def read_requirements():
+    with open('requirements.txt', 'r') as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
 setup(
-    # Reading the version from a file is good, assuming 'version' file exists
-    version=read("version").strip(),
+    version=read("version"),
     name="podcast_downloader",
-    
-    # Updated to your GitHub user
     author="Dawid Plocki",
     author_email="dawid.plocki@gmail.com",
-    
-    description="A script for downloading podcast episodes from given RSS channels",
+    description="The script for downloading recent media files from given RSS channels",
     long_description_content_type="text/markdown",
     long_description=read("README.md"),
-    
-    # find_packages() is more robust than manually listing them
-    packages=find_packages(),
-    
-    # --- CRITICAL CHANGE IS HERE ---
-    # Added 'requests' to the list of required libraries.
-    install_requires=[
-        "feedparser",
-        "requests"
-    ],
-    
-    # Updated to your repository URL
-    url="https://github.com/Blackspirits/podcast-downloader",
-    
+    packages=["podcast_downloader"],
+    install_requires=read_requirements(), # Use the new function to read requirements
+    url="https://github.com/dplocki/podcast-downloader",
     classifiers=[
         "Environment :: Console",
-        "License :: OSI Approved :: MIT License", # Changed to MIT as GPL can be complex
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Natural Language :: English",
         "Operating System :: OS Independent",
-        # Updated to reflect the Python version you are using
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
-    python_requires=">=3.8", # Updated to a more modern minimum
+    python_requires=">=3.12",
 )

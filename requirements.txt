@@ -1,0 +1,5 @@
+feedparser==6.0.10
+black==24.4.2
+pytest==8.2.2 # Example: If you're using pytest for testing, make sure it's here.
+pytest-httpserver==1.0.6 # Added to dependency e2e/fixures.py
+# Other dependencies in your project

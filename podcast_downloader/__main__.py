@@ -1,23 +1,22 @@
 import os
-import re
-import sys
-import time
-import argparse
-import logging
-import requests
-from functools import partial
-from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Tuple
-from datetime import datetime
+import urllib
+import argparse
+import re
+import time
+import sys
+import urllib.error # I added this import
 
+from functools import partial
 from . import configuration
-from .configuration import (
-    ConfigurationError,
+
+from podcast_downloader.configuration import (
     configuration_verification,
     get_label_to_date,
     get_n_age_date,
     parse_day_label,
 )
+from .utils import ConsoleOutputFormatter, compose
 from .downloaded import (
     get_downloaded_files,
     get_extensions_checker,
@@ -27,7 +26,7 @@ from .parameters import merge_parameters_collection, load_configuration_file, pa
 from .rss import (
     RSSEntity,
     build_only_allowed_filter_for_link_data,
-    build_only_new_entities, # <-- This function's signature needs to be updated in rss.py
+    build_only_new_entities,
     file_template_to_file_name,
     flatten_rss_links_data,
     get_feed_title_from_feed,
@@ -37,8 +36,6 @@ from .rss import (
     only_entities_from_date,
     only_last_n_entities,
 )
-from .utils import ConsoleOutputFormatter, compose
-from logging.handlers import TimedRotatingFileHandler
 
 def ascii_clear():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -63,68 +60,78 @@ o888bood8P'   `Y8bod8P'     `8'  `8'     o888o o888o o888o `Y8bod8P' `Y888""8o `
 
 """)
 
-logger = logging.getLogger("podcast_downloader")
-logger.setLevel(logging.DEBUG)
-
-if not logger.handlers:
-    # 1) Console handler com cores
-    console_h = logging.StreamHandler(sys.stdout)
-    console_h.setLevel(logging.DEBUG)
-    console_h.setFormatter(ConsoleOutputFormatter())
-    logger.addHandler(console_h)
-
-    # 2) File handler com rotação diária (mantém 7 dias)
-    log_dir = os.path.join(os.getcwd(), "logs")
-    os.makedirs(log_dir, exist_ok=True)
-    file_h = TimedRotatingFileHandler(
-        os.path.join(log_dir, "app_log.log"),
-        when="midnight", interval=1, backupCount=7, encoding="utf-8"
-    )
-    file_h.setLevel(logging.INFO)
-    file_h.setFormatter(logging.Formatter("%(asctime)s %(levelname)-5s %(message)s"))
-    logger.addHandler(file_h)
-
-def sanitize_filename(filename: str) -> str:
-    """Remove illegal characters from a filename."""
-    return re.sub(r'[\\/*?:"<>|]', "", filename)
-
 def download_rss_entity_to_path(
-    headers: Dict[str, str],
+    headers: List[Tuple[str, str]],
     to_file_name_function: Callable[[RSSEntity], str],
-    path: Path,
+    path: str,
     rss_entity: RSSEntity,
 ):
-    """Downloads an RSS entity to a path, using requests and pathlib."""
-    path.mkdir(parents=True, exist_ok=True)
-
-    path_to_file = path / to_file_name_function(rss_entity)
+    path_to_file = os.path.join(path, to_file_name_function(rss_entity))
 
     try:
-        with requests.get(rss_entity.link, headers=headers, stream=True, timeout=30) as response:
-            response.raise_for_status()
-            with open(path_to_file, "wb") as file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    file.write(chunk)
+        request = urllib.request.Request(rss_entity.link, headers=headers)
 
-    except requests.exceptions.RequestException as e:
-        logger.error('Network error while trying to download "%s": %s', rss_entity.link, e)
-    except IOError as e:
-        logger.error('Failed to save file "%s" to disk: %s', path_to_file, e)
-    except Exception as e:
-        logger.exception('An unexpected error occurred while downloading "%s" to "%s".', rss_entity.link, path_to_file)
+        with urllib.request.urlopen(request) as response:
+            with open(path_to_file, "wb") as file:
+                file.write(response.read())
+
+    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+        logger.exception(
+            'Failed to download podcast file "%s" due to network or HTTP error: %s',
+            rss_entity.link,
+            e
+        )
+    except IOError as e: # For disk write errors
+        logger.exception(
+            'Could not save podcast file "%s" to disk "%s" due to I/O error: %s',
+            rss_entity.link,
+            path_to_file,
+            e
+        )
+    except Exception: # Keeps a generic capture as a fallback for unexpected errorsFor disk write errors
+        logger.exception(
+            'An unexpected error occurred while downloading/saving podcast file "%s" to disk "%s"',
+            rss_entity.link,
+            path_to_file,
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--downloads_limit", type=int, help="The maximum number of files the script will download.")
-    parser.add_argument("--if_directory_empty", type=str, help="The general approach for empty directories.")
-    parser.add_argument("--config", type=str, help="The path to the configuration file.")
-    parser.add_argument("--download_delay", type=int, help="The waiting time (in seconds) between downloads.")
+
+    parser.add_argument(
+        "--downloads_limit",
+        required=False,
+        type=int,
+        help="The maximum number of mp3 files which script will download",
+    )
+
+    parser.add_argument(
+        "--if_directory_empty",
+        required=False,
+        type=str,
+        help="The general approach on empty directory",
+    )
+
+    parser.add_argument(
+        "--config",
+        required=False,
+        type=str,
+        help="The path to configuration file",
+    )
+
+    parser.add_argument(
+        "--download_delay",
+        required=False,
+        type=int,
+        help="The waiting time (seconds) between downloads",
+    )
+
     return parser
 
 
 def configuration_to_function_on_empty_directory(
-    configuration_value: str, last_run_date: datetime
+    configuration_value: str, last_run_date: time.struct_time
 ) -> Callable[[Iterable[RSSEntity]], Iterable[RSSEntity]]:
     if configuration_value == "download_last":
         return partial(only_last_n_entities, 1)
@@ -134,98 +141,91 @@ def configuration_to_function_on_empty_directory(
 
     if configuration_value == "download_since_last_run":
         if last_run_date:
-            return partial(filter, only_entities_from_date(last_run_date))
-        logger.error('The "download_since_last_run" option requires "last_run_mark_file_path" to be set')
-        raise Exception("Missing last run marker file")
+            return only_entities_from_date(last_run_date)
 
-    local_time = datetime.now()
+        logger.error(
+            'The "download_since_last_run" require setup the "last_run_mark_file_path"'
+        )
+        raise Exception("Missing the last run mark file")
 
-    if match := re.match(r"^download_from_(\d+)_days$", configuration_value):
-        from_date = get_n_age_date(int(match[1]), local_time)
-        return partial(filter, only_entities_from_date(from_date))
+    local_time = time.localtime()
 
-    if match := re.match(r"^download_last_(\d+)_episodes", configuration_value):
-        download_limit = int(match[1])
+    from_n_day_match = re.match(r"^download_from_(\d+)_days$", configuration_value)
+    if from_n_day_match:
+        from_date = get_n_age_date(int(from_n_day_match[1]), local_time)
+        return only_entities_from_date(from_date)
+
+    last_n_episodes = re.match(r"^download_last_(\d+)_episodes", configuration_value)
+    if last_n_episodes:
+        download_limit = int(last_n_episodes[1])
         return partial(only_last_n_entities, download_limit)
 
-    if match := re.match(r"^download_from_(.*)", configuration_value):
-        day_label = parse_day_label(match[1])
-        date_func = get_label_to_date(day_label)
-        from_date = date_func(local_time)
-        return partial(filter, only_entities_from_date(from_date))
+    from_nth_day_match = re.match(r"^download_from_(.*)", configuration_value)
+    if from_nth_day_match:
+        day_label = parse_day_label(from_nth_day_match[1])
 
-    raise Exception(f"The value '{configuration_value}' is not recognizable")
+        return only_entities_from_date(get_label_to_date(day_label)(local_time))
+
+    raise Exception(f"The value the '{configuration_value}' is not recognizable")
 
 
 def is_windows_running():
     return sys.platform == "win32"
 
 
-def get_system_file_name_limit(sub_configuration: Dict) -> int:
-    path_str = str(sub_configuration["path"])
-    return 255 if is_windows_running() else 260 - len(path_str) - 1
+def get_system_file_name_limit(sub_configuration: Dict[str, str]) -> int:
+    # on Windows, the file name is limited to 260 characters including the path to it
+    return 255 if is_windows_running() else 260 - len(sub_configuration["path"]) - 1
 
 
 def configuration_to_function_rss_to_name(
-    configuration_value: str, sub_configuration: Dict
+    configuration_value: str, sub_configuration: Dict[str, str]
 ) -> Callable[[RSSEntity], str]:
-    if (
-        configuration.CONFIG_PODCASTS_REQUIRE_DATE in sub_configuration
-        and configuration.CONFIG_FILE_NAME_TEMPLATE not in sub_configuration
-    ):
-        default_template = "[%publish_date:%Y-%m-%d%] %title%.%file_extension%"
-        if sub_configuration[configuration.CONFIG_PODCASTS_REQUIRE_DATE]:
-            configuration_value = default_template
-        logger.warning(
-            'The option %s is deprecated. Please use %s: "%s"',
-            configuration.CONFIG_PODCASTS_REQUIRE_DATE,
-            configuration.CONFIG_FILE_NAME_TEMPLATE,
-            default_template,
-        )
 
-    return compose(
-        sanitize_filename,
-        partial(file_template_to_file_name, configuration_value)
-    )
+    return partial(file_template_to_file_name, configuration_value)
 
 
-def load_the_last_run_date_store_now(marker_file_path_str: str, now: datetime):
-    if not marker_file_path_str:
+def load_the_last_run_date_store_now(marker_file_path, now):
+    if marker_file_path == None:
         return None
 
-    marker_file = Path(marker_file_path_str).expanduser()
+    full_marker_file_path = os.path.expanduser(marker_file_path)
+    if not os.path.exists(full_marker_file_path):
+        logger.warning("Marker file doesn't exist, creating (set last time run as now)")
 
-    if not marker_file.exists():
-        logger.warning("Marker file does not exist, creating a new one (last run time will be set to now).")
-        marker_file.parent.mkdir(parents=True, exist_ok=True)
-        marker_file.write_text(
-            "This is a marker file for podcast_downloader. Its last access date is used to determine the last run time."
-        )
+        with open(marker_file_path, "w") as file:
+            file.write(
+                "This is a marker file for podcast_download. It last access date is used to determine the last run time"
+            )
+
         return now
 
-    access_time_stamp = marker_file.stat().st_atime
-    access_time = datetime.fromtimestamp(access_time_stamp)
+    access_time = time.localtime(os.path.getatime(full_marker_file_path))
     logger.info(
-        "The last time the script was run: %s",
-        access_time.strftime("%Y-%m-%d %H:%M:%S"),
+        "Last time the script has been run: %s",
+        time.strftime("%Y-%m-%d %H:%M:%S", access_time),
     )
 
-    now_timestamp = time.mktime(now.timetuple())
-    os.utime(marker_file, (now_timestamp, now_timestamp))
+    os.utime(full_marker_file_path, times=(time.mktime(now), time.mktime(now)))
     return access_time
 
 
-def main():
-    """Main function that runs the downloader logic."""
-    # Call the ASCII art function at the very beginning of main()
-    ascii_clear()
+if __name__ == "__main__":
+    import sys
+    from logging import getLogger, StreamHandler, INFO
+
+    logger = getLogger(__name__)
+    logger.setLevel(INFO)
+    stdout_handler = StreamHandler(stream=sys.stdout)
+    stdout_handler.setFormatter(ConsoleOutputFormatter())
+    logger.addHandler(stdout_handler)
 
     DEFAULT_CONFIGURATION = {
         configuration.CONFIG_DOWNLOADS_LIMIT: sys.maxsize,
         configuration.CONFIG_IF_DIRECTORY_EMPTY: "download_last",
         configuration.CONFIG_PODCAST_EXTENSIONS: {".mp3": "audio/mpeg"},
         configuration.CONFIG_FILE_NAME_TEMPLATE: "%file_name%.%file_extension%",
-        configuration.CONFIG_HTTP_HEADER: {"User-Agent": f"podcast-downloader/1.0 (Python/{sys.version_info.major}.{sys.version_info.minor})"},
+        configuration.CONFIG_HTTP_HEADER: {"User-Agent": "podcast-downloader"},
         configuration.CONFIG_FILL_UP_GAPS: False,
         configuration.CONFIG_DOWNLOAD_DELAY: 0,
         configuration.CONFIG_LAST_RUN_MARK_PATH: None,
@@ -233,129 +233,170 @@ def main():
     }
 
     PARAMETERS_CONFIGURATION = parse_argv(build_parser())
-    config_file_name = PARAMETERS_CONFIGURATION.get("config", "~/.podcast_downloader_config.json")
 
-    config_path = Path(config_file_name).expanduser()
-    logger.info('Loading configuration from file: "%s"', config_path)
-
-    try:
-        CONFIGURATION_FROM_FILE = load_configuration_file(config_path)
-    except (FileNotFoundError, ValueError) as e:
-        logger.warning("Could not load configuration file: %s. Continuing with defaults.", e)
-        CONFIGURATION_FROM_FILE = {}
-
-
-    CONFIGURATION = merge_parameters_collection(
-        DEFAULT_CONFIGURATION, CONFIGURATION_FROM_FILE, PARAMETERS_CONFIGURATION
+    config_file_name = PARAMETERS_CONFIGURATION.get(
+        "config", "~/.podcast_downloader_config.json"
+    )
+    logger.info('Loading configuration (from file: "%s")', config_file_name)
+    CONFIGURATION_FROM_FILE = load_configuration_file(
+        os.path.expanduser(config_file_name)
     )
 
-    try:
-        configuration_verification(CONFIGURATION)
-    except ConfigurationError as e:
-        logger.error("There is a problem with the configuration: %s", e)
-        sys.exit(1)
+    CONFIGURATION = merge_parameters_collection(
+        DEFAULT_CONFIGURATION,
+        CONFIGURATION_FROM_FILE,
+        PARAMETERS_CONFIGURATION,
+    )
+
+    is_valid, error = configuration_verification(CONFIGURATION)
+    if not is_valid:
+        logger.info("There is a problem with configuration file: %s", error)
+        exit(1)
 
     RSS_SOURCES = CONFIGURATION[configuration.CONFIG_PODCASTS]
     DOWNLOADS_LIMITS = CONFIGURATION[configuration.CONFIG_DOWNLOADS_LIMIT]
     LAST_RUN_DATETIME = load_the_last_run_date_store_now(
-        CONFIGURATION[configuration.CONFIG_LAST_RUN_MARK_PATH], datetime.now()
+        CONFIGURATION[configuration.CONFIG_LAST_RUN_MARK_PATH], time.localtime()
     )
 
-    # --- This entire for loop block (and its contents) needs to be properly indented within main() ---
     for rss_source in RSS_SOURCES:
-        try:
-            rss_source_name = rss_source.get(configuration.CONFIG_PODCASTS_NAME, None)
-            rss_source_path = Path(rss_source[configuration.CONFIG_PODCASTS_PATH]).expanduser()
-            rss_source_link = rss_source[configuration.CONFIG_PODCASTS_RSS_LINK]
+        file_length_limit = get_system_file_name_limit(rss_source)
+        rss_source_name = rss_source.get(configuration.CONFIG_PODCASTS_NAME, None)
+        rss_source_path = os.path.expanduser(
+            rss_source[configuration.CONFIG_PODCASTS_PATH]
+        )
+        rss_source_link = rss_source[configuration.CONFIG_PODCASTS_RSS_LINK]
+        rss_disable = rss_source.get(configuration.CONFIG_PODCASTS_DISABLE, False)
+        rss_file_name_template_value = rss_source.get(
+            configuration.CONFIG_FILE_NAME_TEMPLATE,
+            CONFIGURATION[configuration.CONFIG_FILE_NAME_TEMPLATE],
+        )
+        rss_on_empty_directory = rss_source.get(
+            configuration.CONFIG_IF_DIRECTORY_EMPTY,
+            CONFIGURATION[configuration.CONFIG_IF_DIRECTORY_EMPTY],
+        )
+        rss_podcast_extensions = rss_source.get(
+            configuration.CONFIG_PODCAST_EXTENSIONS,
+            CONFIGURATION[configuration.CONFIG_PODCAST_EXTENSIONS],
+        )
+        rss_https_header = merge_parameters_collection(
+            CONFIGURATION[configuration.CONFIG_HTTP_HEADER],
+            rss_source.get(configuration.CONFIG_HTTP_HEADER, {}),
+        )
+        rss_fill_up_gaps = rss_source.get(
+            configuration.CONFIG_FILL_UP_GAPS, # Try getting it from rss_source
+            CONFIGURATION[configuration.CONFIG_FILL_UP_GAPS], # Fallback to global configuration
+        )
+        rss_download_delay = rss_source.get(
+            configuration.CONFIG_DOWNLOAD_DELAY,
+            CONFIGURATION[configuration.CONFIG_DOWNLOAD_DELAY],
+        )
 
-            if rss_source.get(configuration.CONFIG_PODCASTS_DISABLE, False):
-                logger.info('Skipping "%s" (disabled in config)', rss_source_name or rss_source_link)
-                continue
+        if rss_disable:
+            logger.info('Skipping the "%s"', rss_source_name or rss_source_link)
+            continue
 
-            feed = load_feed(rss_source_link)
-            if feed.bozo and not feed.entries:
-                logger.error("Error while checking link: '%s': %s", rss_source_link, feed.bozo_exception)
-                continue
+        feed = load_feed(rss_source_link)
+        if feed.bozo and len(feed.entries) == 0:
+            logger.error(
+                f"Error while checking the link: '{rss_source_link}': {feed['bozo_exception']}"
+            )
+            continue
 
-            if not rss_source_name:
-                rss_source_name = get_feed_title_from_feed(feed)
-            logger.info('Checking "%s"', rss_source_name)
+        if not rss_source_name:
+            rss_source_name = get_feed_title_from_feed(feed)
 
-            rss_file_name_template_value = rss_source.get(configuration.CONFIG_FILE_NAME_TEMPLATE, CONFIGURATION[configuration.CONFIG_FILE_NAME_TEMPLATE])
-            rss_on_empty_directory = rss_source.get(configuration.CONFIG_IF_DIRECTORY_EMPTY, CONFIGURATION[configuration.CONFIG_IF_DIRECTORY_EMPTY])
-            rss_podcast_extensions = rss_source.get(configuration.CONFIG_PODCAST_EXTENSIONS, CONFIGURATION[configuration.CONFIG_PODCAST_EXTENSIONS])
-            rss_https_header = merge_parameters_collection(CONFIGURATION[configuration.CONFIG_HTTP_HEADER], rss_source.get(configuration.CONFIG_HTTP_HEADER, {}))
-            rss_fill_up_gaps = rss_source.get(configuration.CONFIG_FILL_UP_GAPS, False)
-            rss_download_delay = rss_source.get(configuration.CONFIG_DOWNLOAD_DELAY, CONFIGURATION[configuration.CONFIG_DOWNLOAD_DELAY])
+        logger.info('Checking "%s"', rss_source_name)
 
-            to_name_function = configuration_to_function_rss_to_name(rss_file_name_template_value, rss_source)
-            file_length_limit = get_system_file_name_limit({"path": rss_source_path})
-            to_real_podcast_file_name = compose(partial(limit_file_name, file_length_limit), to_name_function)
+        to_name_function = configuration_to_function_rss_to_name(
+            rss_file_name_template_value, rss_source
+        )
 
-            downloaded_files = list(get_downloaded_files(get_extensions_checker(rss_podcast_extensions.keys()), rss_source_path))
-            allow_link_types = list(set(rss_podcast_extensions.values()))
-            all_feed_entries = list(flatten_rss_links_data(get_raw_rss_entries_from_feed(feed)))
-            all_feed_entries = list(filter(build_only_allowed_filter_for_link_data(allow_link_types), all_feed_entries))
+        on_empty_directory = configuration_to_function_on_empty_directory(
+            rss_on_empty_directory, LAST_RUN_DATETIME
+        )
 
-            all_feed_files = [to_real_podcast_file_name(entry) for entry in all_feed_entries][::-1]
-            downloaded_files_set = set(downloaded_files)
+        downloaded_files = list(
+            get_downloaded_files(
+                get_extensions_checker(rss_podcast_extensions), rss_source_path
+            )
+        )
 
-            # --- CORREÇÃO DA LÓGICA DO download_limiter AQUI ---
-            if not downloaded_files_set:
-                download_limiter_func = configuration_to_function_on_empty_directory(rss_on_empty_directory, LAST_RUN_DATETIME)
-                missing_files_links = list(download_limiter_func(all_feed_entries))
-                last_downloaded_file = None
+        allow_link_types = list(set(rss_podcast_extensions.values()))
+
+        all_feed_entries = compose(
+            list,
+            partial(filter, build_only_allowed_filter_for_link_data(allow_link_types)),
+            flatten_rss_links_data,
+            get_raw_rss_entries_from_feed,
+        )(feed)
+
+        to_real_podcast_file_name = compose(
+            partial(limit_file_name, file_length_limit), to_name_function
+        )
+
+        all_feed_files = list(map(to_real_podcast_file_name, all_feed_entries))[::-1]
+        downloaded_files = [feed for feed in all_feed_files if feed in downloaded_files]
+
+        last_downloaded_file = None
+        if downloaded_files:
+            if rss_fill_up_gaps:
+                last_downloaded_file = get_last_downloaded_file_before_gap(
+                    all_feed_files, downloaded_files
+                )
             else:
-                current_downloaded_in_feed = [f for f in all_feed_files if f in downloaded_files_set]
+                last_downloaded_file = downloaded_files[-1]
 
-                if not current_downloaded_in_feed:
-                    last_downloaded_file = None
-                    missing_files_links = list(all_feed_entries)
-                elif rss_fill_up_gaps:
-                    last_downloaded_file = get_last_downloaded_file_before_gap(all_feed_files, current_downloaded_in_feed)
-                    # Corrected call to build_only_new_entities as per previous suggestion
-                    missing_files_links = list(build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries))
-                else:
-                    last_downloaded_file = current_downloaded_in_feed[-1]
-                    # Corrected call to build_only_new_entities as per previous suggestion
-                    missing_files_links = list(build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries))
-            # --- FIM DA CORREÇÃO ---
+            download_limiter_function = partial(
+                build_only_new_entities(to_name_function), last_downloaded_file
+            )
+        else:
+            download_limiter_function = on_empty_directory
 
-            logger.info('Last downloaded file: "%s"', last_downloaded_file or "<none>")
+        missing_files_links = compose(list, download_limiter_function)(all_feed_entries)
 
-            if not missing_files_links:
-                logger.info("Nothing new for: %s", rss_source_name)
-                continue
+        logger.info('Last downloaded file "%s"', last_downloaded_file or "<none>")
 
-            download_podcast = partial(download_rss_entity_to_path, rss_https_header, to_real_podcast_file_name, rss_source_path)
+        if missing_files_links:
+            download_podcast = partial(
+                download_rss_entity_to_path,
+                rss_https_header,
+                to_real_podcast_file_name,
+            )
 
             first_element = True
             for rss_entry in reversed(missing_files_links):
-                if DOWNLOADS_LIMITS <= 0:
-                    logger.info("Global download limit reached.")
-                    break
-
-                pub_date = getattr(rss_entry, "published", None)
-                if not pub_date and hasattr(rss_entry, "published_parsed"):
-                    pub_date = time.strftime("%Y-%m-%d %H:%M:%S", rss_entry.published_parsed)
-
-                if rss_download_delay > 0 and not first_element:
-                    logger.info("Waiting %d second(s) before next download...", rss_download_delay)
+                if rss_download_delay > 0 and not first_element: # Sleep only if there is a delay and it is not the first element
+                    logger.info(
+                        "The download is sleeping (%d second)", rss_download_delay
+                    )
                     time.sleep(rss_download_delay)
-                first_element = False
 
-                wanted_podcast_file_name = to_real_podcast_file_name(rss_entry)
+                first_element = False # Mark as not being the first element for the next iterations
 
-                logger.info('Downloading new episode of: %s', rss_source_name)
-                logger.info('  -> Source URL: "%s"', rss_entry.link)
-                logger.info('  -> Saved as:    "%s"', wanted_podcast_file_name)
+                wanted_podcast_file_name = to_name_function(rss_entry)
+                if wanted_podcast_file_name in downloaded_files:
+                    continue
 
-                download_podcast(rss_entry)
+                if DOWNLOADS_LIMITS == 0:
+                    continue
+
+                if len(wanted_podcast_file_name) > file_length_limit:
+                    logger.info(
+                        'Your system cannot support the full podcast file name "%s". The name will be shortened',
+                        wanted_podcast_file_name,
+                    )
+
+                logger.info(
+                    '%s: Downloading file: "%s" saved as "%s"',
+                    rss_source_name,
+                    rss_entry.link,
+                    to_real_podcast_file_name(rss_entry),
+                )
+
+                download_podcast(rss_source_path, rss_entry)
                 DOWNLOADS_LIMITS -= 1
+        else:
+            logger.info("%s: Nothing new", rss_source_name)
 
-        except Exception as e:
-            logger.error('Critical failure while processing feed "%s". Error: %s', rss_source.get('name', rss_source.get('rss_link')), e)
-
-if __name__ == "__main__":
-    main()
-    logger.info("Finished.")
+    logger.info("Finished")

@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-feedparser = "*"
+feedparser = ">=6.0.10" # Recommended to guarantee the minimum version and allow updates
 
 [dev-packages]
 pylint = "*"
@@ -15,4 +15,4 @@ autopep8 = "*"
 black = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3.13"

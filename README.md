@@ -52,6 +52,22 @@ Installation from PyPI:
 ```bash
 pip install podcast_downloader
 ```
+## Docker
+
+1. Build the image and start the services:
+
+```bash
+docker-compose build
+docker-compose up
+```
+
+2. Run the script inside the container:
+
+```bash
+docker-compose run app python -m podcast_downloader --config my_config.json
+# Or to run the tests
+# docker-compose run tests
+```
 
 ## Running the script
 
@@ -85,6 +101,39 @@ An example of configuration file
       "rss_link": "https://realpython.com/podcasts/rpp/feed",
       "path": "~/podcasts/RealPython",
       "file_name_template": "[%publish_date%] %file_name%.%file_extension%"
+    }
+  ]
+}
+```
+
+### Advanced Configuration Example
+
+```json
+This example demonstrates the use of download_limit, download_delay and a combination of global and podcast-specific HTTP headers.Advanced Configuration Example
+
+{
+  "downloads_limit": 10,
+  "download_delay": 2,
+  "http_headers": {
+    "User-Agent": "MyCustomPodcastDownloader/1.0",
+    "Accept-Language": "en-US,en;q=0.9"
+  },
+  "podcasts": [
+    {
+      "name": "Another Tech Podcast",
+      "rss_link": "[https://example.com/tech_podcast/feed.xml](https://example.com/tech_podcast/feed.xml)",
+      "path": "~/podcasts/TechPod",
+      "if_directory_empty": "download_last_3_episodes",
+      "file_name_template": "[%publish_date%:%Y-%m-%d] %title%.%file_extension%",
+      "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/100.0.4896.60 Safari/537.36"
+      }
+    },
+    {
+      "name": "My Daily News Brief",
+      "rss_link": "[https://example.com/news_brief/feed.xml](https://example.com/news_brief/feed.xml)",
+      "path": "~/podcasts/NewsBrief",
+      "fill_up_gaps": true
     }
   ]
 }

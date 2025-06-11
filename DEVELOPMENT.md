@@ -9,7 +9,7 @@ The project is using [pipenv](https://github.com/pypa/pipenv).
 Setup the pipenv envirement (required only once).
 
 ```bash
-pipenv --python 3.8
+pipenv --python 3.13
 ```
 
 Install all dependencies for a project (including dev):
