@@ -53,22 +53,29 @@ def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
     publish_date_template = "%publish_date:"
     publish_date_template_len = len(publish_date_template)
 
-    while "%publish_date:" in name_template:
-        start_token = name_template.index("%publish_date:")
-        token = name_template[
-            start_token : name_template.index(
-                "%", start_token + publish_date_template_len
+ while publish_date_template in name_template: # Use 'in' para mais robustez
+        start_token = name_template.index(publish_date_template)
+        try:
+            end_token_index = name_template.index("%", start_token + publish_date_template_len)
+            token = name_template[start_token : end_token_index + 1]
+            date_format_str = token[publish_date_template_len:-1].replace("$", "%")
+            result_date_str = time.strftime(date_format_str, entity.published_date)
+            name_template = name_template.replace(token, result_date_str)
+        except ValueError:
+            # Caso o '%' final esteja em falta ou haja outro erro de formatação
+            logger.warning(
+                "Malformed date template found in filename template: '%s'. Skipping format.",
+                name_template[start_token:start_token+50] # log part of the template
             )
-            + 1
-        ]
-        result = time.strftime(
-            token[publish_date_template_len:-1].replace("$", "%"), entity.published_date
-        )
-        name_template = name_template.replace(token, result)
+            name_template = name_template.replace(token, "") # Remove the malformed token or replace with empty string
+            break # Exit loop to prevent infinite loop on malformed token
 
+    # Substitui placeholders restantes, incluindo %publish_date% se não foi substituído antes (o que é raro)
     return (
         name_template.replace("%file_name%", link_to_file_name(entity.link))
-        .replace("%publish_date%", time.strftime("%Y%m%d", entity.published_date))
+        .replace("%publish_date%", time.strftime("%Y%m%d", entity.published_date)) # Manter como fallback se a template de cima não for usada.
+                                                                                # Se usar apenas %publish_date% no config, este é ativado.
+                                                                                # Se usar a template mais completa, este já não fará nada.
         .replace("%file_extension%", link_to_extension(entity.link))
         .replace("%title%", str_to_filename(entity.title))
         .strip()
