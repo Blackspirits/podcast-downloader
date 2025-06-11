@@ -28,13 +28,8 @@ class ConsoleOutputFormatter(logging.Formatter):
     PINK = "\033[38;2;245;194;231m"
     BASE = "\033[38;2;30;30;46m"        # Background
     TEXT = "\033[38;2;205;214;244m"        # Foreground text
-    SAPPHIRE = "\033[38;2;116;199;236m" # Mantido
-    TEAL = "\033[38;2;152;211;190m"     # Mantido
-    PEACH = "\033[38;2;255;180;128m"
-    
-    # Removido: SURFACE0, SURFACE1, SURFACE2, OVERLAY0, OVERLAY1, OVERLAY2, PEACH.
-    # Se precisar de alguma destas cores, adicione-as novamente.
-    # PEACH foi mantido na formatação do timestamp.
+    SAPPHIRE = "\033[38;2;116;199;236m"
+    PEACH = "\033[38;2;255;180;128m" # Certifique-se que esta está definida
 
     # Dictionary mapping log levels to color constants
     LEVEL_COLORS = {
@@ -46,15 +41,14 @@ class ConsoleOutputFormatter(logging.Formatter):
     }
 
     # General rules for simple log messages
-    # Estes são padrões regex que podem ser aplicados à mensagem completa.
-    # Certifique-se que o grupo de captura (.*?) não inclui o final da string se a regra não for para isso.
+    # Estas regras são aplicadas APENAS no bloco 'else', para mensagens genéricas.
+    # Elas NÃO são para mensagens que já são tratadas pelos 'elif' específicos.
     KEYWORD_RULES: List[Tuple[str, str]] = [
-        # O padrão para URLs: "http(s)://..." ou "ftp://..."
-        (r'(https?://\S+)', SKY),
-        # Padrões para nomes de ficheiro ou strings entre aspas genéricas
-        (r'(".*?\.(mp3|m4a|mp4)")', SAPPHIRE), # Nome de ficheiro de podcast
-        (r'(".*?")', ROSEWATER), # Aspas genéricas (se não for um ficheiro de podcast)
+        (r'(".*?")', ROSEWATER), # Aspas genéricas
         (r'(Finished\.)', GREEN),
+        (r'(Nothing new for:)', BLUE), # Mantido, mas o elif é mais específico.
+        # Adicione mais regras genéricas se necessário
+        (r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})', WHITE), # Exemplo: colorir timestamps genéricos
     ]
 
     def __init__(self) -> None:
@@ -63,21 +57,17 @@ class ConsoleOutputFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         timestamp = self.formatTime(record, self.datefmt)
-        message = record.getMessage() # Esta é a mensagem original sem cores ANSI
+        message = record.getMessage() # Esta é a mensagem original sem cores
 
-        # Determine a cor base para o nível de log
-        default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
-        
-        # Inicia a mensagem formatada com a cor base do nível de log.
-        # TODA a mensagem será inicialmente desta cor.
-        formatted_message_content = message 
+        # Por padrão, assume que a mensagem será formatada com a cor do nível
+        formatted_message_content = "" # Inicializa para garantir que é sempre definida
 
-        # --- Tratamento de casos especiais para mensagens específicas ---
-        # Estas condições aplicam cores e, se necessário, novas linhas.
-        # Elas constroem a string FINAL para formatted_message_content.
+        # --- Tratamento de casos especiais com cores personalizadas ---
+        # A ordem importa aqui: as condições mais específicas primeiro.
+        # Removemos o '\n' inicial nas f-strings aqui, pois ele é adicionado no final por linha.
+
         if record.msg.startswith('Loading configuration from file:'):
             pattern = r'(Loading configuration from file: )(".*?")'
-            # A cor já está incluída na lambda
             formatted_message_content = re.sub(
                 pattern,
                 lambda m: f"{self.BLUE}{m.group(1)}{self.FLAMINGO}{m.group(2)}{self.RESET}",
@@ -96,77 +86,71 @@ class ConsoleOutputFormatter(logging.Formatter):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message_content = f"{self.BLUE}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
         
-        elif message.startswith("    -> Source URL:"):
+        elif message.startswith("    -> Source URL:"): # Usamos `record.msg` para a correspondência exata do prefixo
             url = record.args[0] if record.args else "?"
-            # Aqui, a cor da URL será tratada pelas KEYWORD_RULES se quiser uma cor específica.
-            # A linha principal será LAVENDER.
-            formatted_message_content = f"{self.LAVENDER}    -> Source URL: \"{url}\"{self.RESET}"
+            # Constrói a string com cores específicas, com RESET após cada parte para evitar vazamento
+            formatted_message_content = (
+                f"{self.LAVENDER}    -> Source URL: {self.RESET}" # Cor LAVENDER para o texto fixo, seguido de RESET
+                f"{self.SKY}\"{url}\"{self.RESET}"                 # Cor SKY para a URL, seguido de RESET
+            )
         
-        elif message.startswith('    -> Saved as:'):
+        elif message.startswith('    -> Saved as:'): # Usamos `record.msg` para a correspondência exata do prefixo
             filename = record.args[0] if record.args else "?"
-            # A cor do nome do ficheiro será tratada pelas KEYWORD_RULES.
-            # A linha principal será LAVENDER.
-            formatted_message_content = f"{self.LAVENDER}    -> Saved as:    \"{filename}\"{self.RESET}"
+            # Constrói a string com cores específicas, com RESET após cada parte para evitar vazamento
+            formatted_message_content = (
+                f"{self.LAVENDER}    -> Saved as:    {self.RESET}" # Cor LAVENDER para o texto fixo, seguido de RESET
+                f"{self.SAPPHIRE}\"{filename}\"{self.RESET}"       # Cor SAPPHIRE para o nome do ficheiro, seguido de RESET
+            )
         
         elif message.startswith('Last downloaded file:'):
             filename = record.args[0] if record.args else "?"
-            # A cor do nome do ficheiro será tratada pelas KEYWORD_RULES.
-            # A linha principal será BLUE (nível INFO).
-            formatted_message_content = f"{self.BLUE}Last downloaded file: \"{filename}\"{self.RESET}"
-        
-        # --- Aplicação de regras genéricas para mensagens não tratadas especificamente ---
-        # OU para aplicar sub-coloração em mensagens já pré-coloridas
-        # Opcional: Se quiser que as KEYWORD_RULES se apliquem a mensagens que já foram coloridas nos elifs acima,
-        # precisará de tornar os elifs acima mais simples, ou aplicar as KEYWORD_RULES a 'message' e depois
-        # adicionar as cores do nível de log.
-        # A forma atual é: elifs coloram completamente, e o 'else' usa KEYWORD_RULES.
-        # Se um elif capturar, ele ignora as KEYWORD_RULES.
+            # Constrói a string com cores específicas
+            formatted_message_content = (
+                f"{self.BLUE}Last downloaded file: {self.RESET}" # Cor BLUE para o texto fixo, seguido de RESET
+                f"{self.SAPPHIRE}\"{filename}\"{self.RESET}"     # Cor SAPPHIRE para o nome do ficheiro, seguido de RESET
+            )
+ 
+        else: # Este é o bloco para mensagens genéricas que não foram capturadas acima
+            default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
+            
+            # Aplica a cor do nível a toda a mensagem primeiro
+            formatted_message_content = f"{default_color}{message}{self.RESET}"
 
-        # Se a mensagem não foi tratada por nenhum elif, aplica a cor default do nível e depois as KEYWORD_RULES.
-        if formatted_message_content == "": # Significa que nenhum 'elif' acima foi ativado
-            formatted_message_content = message # Começa com a mensagem original
-
+            # Agora, aplica as regras de palavras-chave sobre a mensagem JÁ colorida
+            # É crucial que as regras sejam específicas e que o RESET seja aplicado corretamente
             for pattern, color in self.KEYWORD_RULES:
                 try:
-                    # Aplica a cor à parte correspondente do regex e reinicia para a cor do nível de log
                     formatted_message_content = re.sub(
                         pattern,
-                        lambda m: f"{color}{m.group(0)}{self.RESET}{default_color}", # Colorir o match e voltar para a cor default da linha
+                        # Para garantir que a cor default_color é restaurada APÓS a palavra-chave
+                        lambda m: f"{color}{m.group(0)}{self.RESET}{default_color}",
                         formatted_message_content
                     )
                 except re.error as e:
                     print(f"[Formatter] Padrão inválido de REGEX ignorado: {pattern} ({e})")
-            
-            # Aplica a cor default do nível de log ao restante da linha que não foi pego pelo regex
-            # Nota: O re.sub já faz o reset e reaplica a cor default, então isto é uma precaução final
-            formatted_message_content = f"{default_color}{formatted_message_content}{self.RESET}"
-
-
+        
         # Adiciona informações de exceção (tracebacks) se existirem
         if record.exc_info:
+            # Garante que a formatação do traceback também é limpa e tem a cor correta
             formatted_message_content += "\n" + self.formatException(record.exc_info)
-        
-        # Adiciona nova linha antes de certas mensagens para melhor leitura
-        # (Se já tiver "\n" na formatted_message_content nos elifs, remova daqui)
-        # Se quiser que todas as mensagens comecem com '\n' (exceto a primeira), adicione aqui:
-        # if not formatted_message_content.startswith('\n'):
-        #    formatted_message_content = '\n' + formatted_message_content
-
-
+            # Tracebacks são geralmente vermelhos ou um tom mais escuro
+            # Pode querer aplicar uma cor específica aqui se não for o padrão do logging.
+            
         # Divide a mensagem final em linhas e adiciona o timestamp e a cor final
         lines = formatted_message_content.splitlines()
         colored_lines = []
         for i, line in enumerate(lines):
             stripped_line = line.strip()
-            if stripped_line != "":
-                # Aqui, a cor do timestamp é aplicada.
+            if stripped_line != "": # Ignora linhas vazias que podem ter sido geradas
+                # Esta é a camada final de coloração, que adiciona o timestamp
                 # O importante é que a cor do 'line' (já formatada) não seja anulada pelo RESET do timestamp.
                 # O {self.RESET} final após o timestamp garante que a linha do log em si está na cor certa.
                 colored_lines.append(
-                    f"{self.MAROON}[{self.RESET}{self.PEACH}{timestamp}{self.RESET}{self.MAROON}]{self.RESET} {line}" # Não usar strip() aqui se quiser manter espaços iniciais para indentação de sub-mensagens
+                    f"{self.MAROON}[{self.RESET}{self.PEACH}{timestamp}{self.RESET}{self.MAROON}]{self.RESET} {line}"
                 )
-            elif i > 0 and lines[i-1].strip() != "": # Adicionar nova linha se a anterior não era vazia
-                 colored_lines.append("") # Adiciona uma linha vazia para espaçamento
+            elif i > 0 and lines[i-1].strip() != "":
+                # Adiciona uma linha vazia para espaçamento se a linha anterior não era vazia
+                colored_lines.append("")
 
         # Junta as linhas com quebras de linha e retorna
         return "\n".join(colored_lines)
