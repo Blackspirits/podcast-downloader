@@ -30,6 +30,7 @@ class ConsoleOutputFormatter(logging.Formatter):
     TEXT = "\033[38;2;205;214;244m"        # Foreground text
     SAPPHIRE = "\033[38;2;116;199;236m" # Mantido
     TEAL = "\033[38;2;152;211;190m"     # Mantido
+    PEACH = "\033[38;2;255;180;128m"
     
     # Removido: SURFACE0, SURFACE1, SURFACE2, OVERLAY0, OVERLAY1, OVERLAY2, PEACH.
     # Se precisar de alguma destas cores, adicione-as novamente.
