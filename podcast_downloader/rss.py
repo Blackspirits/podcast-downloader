@@ -53,7 +53,7 @@ def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
     publish_date_template = "%publish_date:"
     publish_date_template_len = len(publish_date_template)
 
- while publish_date_template in name_template: # Use 'in' para mais robustez
+     while publish_date_template in name_template: # Use 'in' para mais robustez
         start_token = name_template.index(publish_date_template)
         try:
             end_token_index = name_template.index("%", start_token + publish_date_template_len)
