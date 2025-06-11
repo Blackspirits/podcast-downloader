@@ -43,27 +43,26 @@ from logging.handlers import TimedRotatingFileHandler
 def ascii_clear():
     os.system('cls' if os.name == 'nt' else 'clear')
     print("""
-
     
-ooooooooo.            .o8                            .
-`888   `Y88.          "888                           .o8
- 888   .d88'  .ooooo.  .oooo888   .ooooo.   .oooo.    .oooo.o .o888oo
- 888ooo88P'  d88' `88b d88' `888  d88' `"Y8 `P )88b  d88(  "8   888
- 888         888  888 888  888  888         .oP"888  `"Y88b.    888
- 888         888  888 888  888  888   .o8 d8(  888  o.  )88b    888 .
-o888o        `Y8bod8P' `Y8bod88P" `Y8bod8P' `Y888""8o 8""888P'   "888"
-
-oooooooooo.                                     oooo                  .o8
-`888'   `Y8b                                    `888                  "888
- 888    888  .ooooo.  oooo oooo    ooo ooo. .oo.   888   .ooooo.   .oooo.    .oooo888   .ooooo.  oooo d8b
- 888    888 d88' `88b  `88. `88.  .8'  `888P"Y88b   888  d88' `88b `P )88b  d88' `888  d88' `88b `888""8P
- 888    888 888  888   `88..]88..8'    888  888   888  888  888  .oP"888  888  888  888ooo888   888
- 888   d88' 888  888    `888'`888'     888  888   888  888  888 d8(  888  888  888  888   .o   888
-o888bood8P'  `Y8bod8P'      `8'  `8'     o888o o888o o888o `Y8bod8P' `Y888""8o `Y8bod88P" `Y8bod8P' d888b
+ooooooooo.                   .o8                                   .                                        
+`888   `Y88.                "888                                 .o8                                        
+ 888   .d88'  .ooooo.   .oooo888   .ooooo.   .oooo.    .oooo.o .o888oo                                      
+ 888ooo88P'  d88' `88b d88' `888  d88' `"Y8 `P  )88b  d88(  "8   888                                        
+ 888         888   888 888   888  888        .oP"888  `"Y88b.    888                                        
+ 888         888   888 888   888  888   .o8 d8(  888  o.  )88b   888 .                                      
+o888o        `Y8bod8P' `Y8bod88P" `Y8bod8P' `Y888""8o 8""888P'   "888"                                      
+                                                                                                            
+                                                                                                            
+oooooooooo.                                          oooo                            .o8                    
+`888'   `Y8b                                         `888                           "888                    
+ 888      888  .ooooo.  oooo oooo    ooo ooo. .oo.    888   .ooooo.   .oooo.    .oooo888   .ooooo.  oooo d8b
+ 888      888 d88' `88b  `88. `88.  .8'  `888P"Y88b   888  d88' `88b `P  )88b  d88' `888  d88' `88b `888""8P
+ 888      888 888   888   `88..]88..8'    888   888   888  888   888  .oP"888  888   888  888ooo888  888    
+ 888     d88' 888   888    `888'`888'     888   888   888  888   888 d8(  888  888   888  888    .o  888    
+o888bood8P'   `Y8bod8P'     `8'  `8'     o888o o888o o888o `Y8bod8P' `Y888""8o `Y8bod88P" `Y8bod8P' d888b   
 
                                      dplocki 2025
 
-                                     
 """)
 
 logger = logging.getLogger("podcast_downloader")
