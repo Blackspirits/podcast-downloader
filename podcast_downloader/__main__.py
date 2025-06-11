@@ -37,6 +37,8 @@ from .rss import (
     only_last_n_entities,
 )
 
+from logging import getLogger, StreamHandler, INFO
+
 def ascii_clear():
     os.system('cls' if os.name == 'nt' else 'clear')
     print("""    
@@ -60,6 +62,15 @@ o888bood8P'   `Y8bod8P'     `8'  `8'     o888o o888o o888o `Y8bod8P' `Y888""8o `
 
 """)
     time.sleep(2)
+
+    if __name__ == "__main__":
+        main()
+        
+    logger = getLogger(__name__)
+    logger.setLevel(INFO)
+    stdout_handler = StreamHandler(stream=sys.stdout)
+    stdout_handler.setFormatter(ConsoleOutputFormatter())
+    logger.addHandler(stdout_handler)
 
 def download_rss_entity_to_path(
     headers: List[Tuple[str, str]],
@@ -211,7 +222,7 @@ def load_the_last_run_date_store_now(marker_file_path, now):
     return access_time
 
 
-if __name__ == "__main__":
+
     import sys
     from logging import getLogger, StreamHandler, INFO
 
