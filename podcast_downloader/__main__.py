@@ -297,30 +297,29 @@ def main():
             all_feed_files = [to_real_podcast_file_name(entry) for entry in all_feed_entries][::-1]
             downloaded_files_set = set(downloaded_files)
             
-            # --- CORREÇÃO DA LÓGICA DO download_limiter AQUI ---
-            if not downloaded_files_set:
-                download_limiter = configuration_to_function_on_empty_directory(rss_on_empty_directory, LAST_RUN_DATETIME)
+        if not downloaded_files_set:
+            download_limiter_func = configuration_to_function_on_empty_directory(rss_on_empty_directory, LAST_RUN_DATETIME)
+            missing_files_links = list(download_limiter_func(all_feed_entries)) # Apply the filter immediately
+            last_downloaded_file = None
+        else:
+            current_downloaded_in_feed = [f for f in all_feed_files if f in downloaded_files_set]
+
+            if not current_downloaded_in_feed:
                 last_downloaded_file = None
+                # If no downloaded files in feed, download all from feed (no filter needed)
+                missing_files_links = list(all_feed_entries)
+            elif rss_fill_up_gaps:
+                last_downloaded_file = get_last_downloaded_file_before_gap(all_feed_files, current_downloaded_in_feed)
+                missing_files_links = list(build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries))
             else:
-                current_downloaded_in_feed = [f for f in all_feed_files if f in downloaded_files_set]
-                
-                if not current_downloaded_in_feed:
-                    last_downloaded_file = None
-                    download_limiter = lambda x: x # Se não há arquivos baixados, baixe todos do feed
-                elif rss_fill_up_gaps:
-                    last_downloaded_file = get_last_downloaded_file_before_gap(all_feed_files, current_downloaded_in_feed)
-                    download_limiter = build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries)
-                else:
-                    last_downloaded_file = current_downloaded_in_feed[-1]
-                    download_limiter = build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries)
-            # --- FIM DA CORREÇÃO ---
+                last_downloaded_file = current_downloaded_in_feed[-1]
+                missing_files_links = list(build_only_new_entities(to_name_function, last_downloaded_file, all_feed_entries))
 
-            missing_files_links = list(download_limiter(all_feed_entries))
-            logger.info('Last downloaded file: "%s"', last_downloaded_file or "<none>")
+        logger.info('Last downloaded file: "%s"', last_downloaded_file or "<none>")
 
-            if not missing_files_links:
-                logger.info("Nothing new for: %s", rss_source_name)
-                continue
+        if not missing_files_links:
+            logger.info("Nothing new for: %s", rss_source_name)
+            continue
             
             download_podcast = partial(download_rss_entity_to_path, rss_https_header, to_real_podcast_file_name, rss_source_path)
 
