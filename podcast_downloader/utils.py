@@ -55,6 +55,12 @@ class ConsoleOutputFormatter(logging.Formatter):
         # Note que se estes patterns corresponderem a uma mensagem já tratada por um elif acima,
         # este loop não será executado para essa mensagem.
         (r'(".*?")', ROSEWATER), # Aspas genéricas
+        (r'(Finished\.)', GREEN),
+        (r'(Nothing new for:)', BLUE),
+        (r'(-> Source URL:)(".*?")', LAVENDER), # Também tem elif, mas aqui para genérico.
+        (r'(-> Saved as:)(".*?")', LAVENDER), # Também tem elif, mas aqui para genérico.
+        # Adicione mais regras genéricas se necessário, por exemplo, para timestamps dentro de mensagens
+        (r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})', WHITE), # Exemplo: colorir timestamps genéricos
     ]
 
     def __init__(self) -> None:
@@ -71,30 +77,22 @@ class ConsoleOutputFormatter(logging.Formatter):
 
         # --- Tratamento de casos especiais com cores personalizadas ---
         # Estes blocos elif devem ser os primeiros a serem verificados
-        if record.msg.startswith('Loading configuration from file:'):
-            pattern = r'(Loading configuration from file: )(".*?")'
-            formatted_message = re.sub(
-                pattern,
-                lambda m: f"{self.BLUE}{m.group(1)}{self.FLAMINGO}{m.group(2)}{self.RESET}", # Use FLAMINGO para o caminho do config
-                message # Aplica o regex na mensagem original
-            )
-
-        elif message.startswith('Downloading new episode of:'):
+        if message.startswith('Downloading new episode of:'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"{self.BLUE}Downloading new episode of: {self.GREEN}\"{podcast_name}\"{self.RESET}"
+                f"{self.DEFAULT}Downloading new episode of: {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
 
         elif message.startswith('Nothing new for:'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"{self.BLUE}Nothing new for: {self.MAUVE}\"{podcast_name}\"{self.RESET}" # Use MAUVE para 'Nothing new'
+                f"{self.DEFAULT}Nothing new for: {self.MAUVE}\"{podcast_name}\"{self.RESET}" # Use MAUVE para 'Nothing new'
             )
 
         elif message.startswith('Checking'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"{self.BLUE}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
+                f"{self.DEFAULT}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
         
         elif message.startswith("    -> Source URL:"):
@@ -117,7 +115,7 @@ class ConsoleOutputFormatter(logging.Formatter):
             filename = record.args[0] if record.args else "?"
             # Corrigido: Similarmente, garanta que a cor da parte "Last downloaded file:" fecha.
             formatted_message = (
-                f"{self.BLUE}Last downloaded file: {self.RESET}" # Texto inicial BLUE e RESET
+                f"{self.DEFAULT}Last downloaded file: {self.RESET}" # Texto inicial BLUE e RESET
                 f"{self.SAPPHIRE}\"{filename}\"{self.RESET}"     # Nome do ficheiro SAPPHIRE e RESET
             )
  
