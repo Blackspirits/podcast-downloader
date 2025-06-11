@@ -8,6 +8,7 @@ import sys
 import urllib.error # I added this import
 
 from functools import partial
+from . import configuration 
 
 from podcast_downloader.configuration import (
     configuration_verification,
@@ -36,8 +37,6 @@ from .rss import (
     only_last_n_entities,
 )
 
-if __name__ == "__main__":
-
 def ascii_clear():
     os.system('cls' if os.name == 'nt' else 'clear')
     print("""    
@@ -62,9 +61,6 @@ o888bood8P'   `Y8bod8P'     `8'  `8'     o888o o888o o888o `Y8bod8P' `Y888""8o `
 """)
     time.sleep(2)
 
-    import sys
-    from logging import getLogger, StreamHandler, INFO
-    
 def download_rss_entity_to_path(
     headers: List[Tuple[str, str]],
     to_file_name_function: Callable[[RSSEntity], str],
