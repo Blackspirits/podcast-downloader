@@ -86,73 +86,70 @@ class ConsoleOutputFormatter(logging.Formatter):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message_content = f"{self.BLUE}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
         
-        elif message.startswith("    -> Source URL:"): # Usamos `record.msg` para a correspondência exata do prefixo
+        elif message.startswith("    -> Source URL:"):
             url = record.args[0] if record.args else "?"
-            # Constrói a string com cores específicas, com RESET após cada parte para evitar vazamento
+            # REMOVIDO os self.RESET intermédios.
+            # A cor LAVENDER começa, depois a cor SKY, e só o RESET final fecha tudo.
             formatted_message_content = (
-                f"{self.LAVENDER}    -> Source URL: {self.RESET}" # Cor LAVENDER para o texto fixo, seguido de RESET
-                f"{self.SKY}\"{url}\"{self.RESET}"                 # Cor SKY para a URL, seguido de RESET
+                f"{self.LAVENDER}    -> Source URL: " # Texto inicial LAVENDER
+                f"{self.SKY}\"{url}\"{self.RESET}"    # URL SKY, e o RESET final para toda a linha
             )
         
-        elif message.startswith('    -> Saved as:'): # Usamos `record.msg` para a correspondência exata do prefixo
+        elif message.startswith('    -> Saved as:'):
             filename = record.args[0] if record.args else "?"
-            # Constrói a string com cores específicas, com RESET após cada parte para evitar vazamento
+            # REMOVIDO os self.RESET intermédios.
+            # A cor LAVENDER começa, depois a cor SAPPHIRE, e só o RESET final fecha tudo.
             formatted_message_content = (
-                f"{self.LAVENDER}    -> Saved as:    {self.RESET}" # Cor LAVENDER para o texto fixo, seguido de RESET
-                f"{self.SAPPHIRE}\"{filename}\"{self.RESET}"       # Cor SAPPHIRE para o nome do ficheiro, seguido de RESET
+                f"{self.LAVENDER}    -> Saved as:    " # Texto inicial LAVENDER
+                f"{self.SAPPHIRE}\"{filename}\"{self.RESET}" # Nome do ficheiro SAPPHIRE, e o RESET final para toda a linha
             )
         
         elif message.startswith('Last downloaded file:'):
             filename = record.args[0] if record.args else "?"
-            # Constrói a string com cores específicas
+            # REMOVIDO o self.RESET intermédio.
+            # A cor BLUE começa, depois SAPPHIRE, e só o RESET final fecha tudo.
             formatted_message_content = (
-                f"{self.BLUE}Last downloaded file: {self.RESET}" # Cor BLUE para o texto fixo, seguido de RESET
-                f"{self.SAPPHIRE}\"{filename}\"{self.RESET}"     # Cor SAPPHIRE para o nome do ficheiro, seguido de RESET
+                f"{self.BLUE}Last downloaded file: " # Texto inicial BLUE
+                f"{self.SAPPHIRE}\"{filename}\"{self.RESET}" # Nome do ficheiro SAPPHIRE, e o RESET final para toda a linha
             )
  
         else: # Este é o bloco para mensagens genéricas que não foram capturadas acima
             default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
             
-            # Aplica a cor do nível a toda a mensagem primeiro
-            formatted_message_content = f"{default_color}{message}{self.RESET}"
+            formatted_message_content = f"{default_color}{message}" # A cor default começa, SEM RESET AQUI
 
-            # Agora, aplica as regras de palavras-chave sobre a mensagem JÁ colorida
-            # É crucial que as regras sejam específicas e que o RESET seja aplicado corretamente
             for pattern, color in self.KEYWORD_RULES:
                 try:
+                    # m.group(0) é a correspondência inteira do padrão.
+                    # {self.RESET} fecha a cor anterior. {default_color} reabre a cor do nível.
                     formatted_message_content = re.sub(
                         pattern,
-                        # Para garantir que a cor default_color é restaurada APÓS a palavra-chave
+                        # Aplica a cor específica e volta para a cor default da linha
                         lambda m: f"{color}{m.group(0)}{self.RESET}{default_color}",
                         formatted_message_content
                     )
                 except re.error as e:
                     print(f"[Formatter] Padrão inválido de REGEX ignorado: {pattern} ({e})")
-        
+            
+            formatted_message_content = f"{formatted_message_content}{self.RESET}" # Adiciona o RESET FINAL aqui para o bloco else
+
         # Adiciona informações de exceção (tracebacks) se existirem
         if record.exc_info:
-            # Garante que a formatação do traceback também é limpa e tem a cor correta
             formatted_message_content += "\n" + self.formatException(record.exc_info)
-            # Tracebacks são geralmente vermelhos ou um tom mais escuro
-            # Pode querer aplicar uma cor específica aqui se não for o padrão do logging.
             
-        # Divide a mensagem final em linhas e adiciona o timestamp e a cor final
+        # Divide a mensagem final em linhas e adiciona o timestamp e cor final a cada uma
         lines = formatted_message_content.splitlines()
         colored_lines = []
         for i, line in enumerate(lines):
             stripped_line = line.strip()
-            if stripped_line != "": # Ignora linhas vazias que podem ter sido geradas
-                # Esta é a camada final de coloração, que adiciona o timestamp
-                # O importante é que a cor do 'line' (já formatada) não seja anulada pelo RESET do timestamp.
-                # O {self.RESET} final após o timestamp garante que a linha do log em si está na cor certa.
+            if stripped_line != "":
+                # A cor já vem na 'line'. O último {self.RESET} é para fechar o timestamp
                 colored_lines.append(
                     f"{self.MAROON}[{self.RESET}{self.PEACH}{timestamp}{self.RESET}{self.MAROON}]{self.RESET} {line}"
                 )
             elif i > 0 and lines[i-1].strip() != "":
-                # Adiciona uma linha vazia para espaçamento se a linha anterior não era vazia
                 colored_lines.append("")
 
-        # Junta as linhas com quebras de linha e retorna
         return "\n".join(colored_lines)
 
 def compose(*functions: Callable[[Any], Any]) -> Callable[[Any], Any]:
