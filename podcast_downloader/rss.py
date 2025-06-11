@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 from functools import partial
 from itertools import takewhile, islice
-from typing import Callable, Generator, Iterator, List
+from typing import Callable, Generator, Iterable, Iterator, List # Add Iterable here
 import unicodedata
 import feedparser
 
