@@ -1,10 +1,10 @@
 import re
 import time
-import logging
+import logging # Adicionado para o logger
 from dataclasses import dataclass
 from functools import partial
 from itertools import takewhile, islice
-from typing import Callable, Generator, Iterable, Iterator, List # Add Iterable here
+from typing import Callable, Generator, Iterable, Iterator, List # 'Iterable' já está aqui, ótimo!
 import unicodedata
 import feedparser
 
@@ -12,7 +12,7 @@ import feedparser
 FILE_NAME_CHARACTER_LIMIT = 255
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.INFO) # Definir o nível do logger para INFO
 
 @dataclass
 class RSSEntity:
@@ -52,6 +52,7 @@ def str_to_filename(value: str) -> str:
     return value.strip()
 
 
+# RENOMEIE ESTA FUNÇÃO DE 'me' PARA 'file_template_to_file_name'
 def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
     publish_date_template = "%publish_date:"
     publish_date_template_len = len(publish_date_template)
@@ -190,4 +191,3 @@ def is_entity_newer(from_date: time.struct_time, entity: RSSEntity) -> bool:
 
 def only_entities_from_date(from_date: time.struct_time, raw_rss_entries: Iterator[RSSEntity]) -> Iterator[RSSEntity]:
     return filter(lambda entity: is_entity_newer(from_date, entity), raw_rss_entries)
-
