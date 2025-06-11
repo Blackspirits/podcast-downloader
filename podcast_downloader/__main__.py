@@ -43,6 +43,8 @@ from logging.handlers import TimedRotatingFileHandler
 def ascii_clear():
     os.system('cls' if os.name == 'nt' else 'clear')
     print("""
+
+    
 ooooooooo.            .o8                            .
 `888   `Y88.          "888                           .o8
  888   .d88'  .ooooo.  .oooo888   .ooooo.   .oooo.    .oooo.o .o888oo
@@ -60,6 +62,8 @@ oooooooooo.                                     oooo                  .o8
 o888bood8P'  `Y8bod8P'      `8'  `8'     o888o o888o o888o `Y8bod8P' `Y888""8o `Y8bod88P" `Y8bod8P' d888b
 
                                      dplocki 2025
+
+                                     
 """)
 
 logger = logging.getLogger("podcast_downloader")
