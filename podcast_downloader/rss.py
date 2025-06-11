@@ -53,29 +53,54 @@ def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
     publish_date_template = "%publish_date:"
     publish_date_template_len = len(publish_date_template)
 
-    while publish_date_template in name_template: # Use 'in' para mais robustez
-        start_token = name_template.index(publish_date_template)
-        try:
-            end_token_index = name_template.index("%", start_token + publish_date_template_len)
-            token = name_template[start_token : end_token_index + 1]
-            date_format_str = token[publish_date_template_len:-1].replace("$", "%")
-            result_date_str = time.strftime(date_format_str, entity.published_date)
-            name_template = name_template.replace(token, result_date_str)
-        except ValueError:
-            # Caso o '%' final esteja em falta ou haja outro erro de formatação
-            logger.warning(
-                "Malformed date template found in filename template: '%s'. Skipping format.",
-                name_template[start_token:start_token+50] # log part of the template
-            )
-            name_template = name_template.replace(token, "") # Remove the malformed token or replace with empty string
-            break # Exit loop to prevent infinite loop on malformed token
+    while publish_date_template in name_template:
+        start_token = name_template.find(publish_date_template) # Use find instead of index for consistency with other parts
+        if start_token == -1: # Should not happen with the 'in' check, but good practice
+            break
 
-    # Substitui placeholders restantes, incluindo %publish_date% se não foi substituído antes (o que é raro)
+        try:
+            # Find the closing '%' for the custom date format
+            end_format_marker_index = name_template.find("%", start_token + publish_date_template_len)
+            if end_format_marker_index == -1: # Malformed template, no closing '%'
+                # Log a warning (if logger is available in rss.py) or just break
+                # logger.warning("Malformed date template (missing closing '%%') in '%s'", name_template[start_token:])
+                break
+
+            # Extract the raw format string, e.g., "Y-%m-%d" from "%publish_date:Y-%m-%d%"
+            # It starts after publish_date_template, and ends right before the final '%'
+            date_format_str = name_template[start_token + publish_date_template_len : end_format_marker_index]
+
+            # Replace custom '$' (if used) with real '%' for strftime
+            date_format_str = date_format_str.replace("$", "%")
+
+            # Apply strftime
+            result_date_str = time.strftime(date_format_str, entity.published_date)
+
+            # Replace the full custom token, e.g., "[%publish_date:%Y-%m-%d%]"
+            # The full token goes from start_token to end_format_marker_index + 1 (to include the closing '%')
+            full_custom_token = name_template[start_token : end_format_marker_index + 1]
+            name_template = name_template.replace(full_custom_token, result_date_str, 1) # Use count=1 to replace only the first occurrence
+
+        except ValueError:
+            # This catch is for issues within time.strftime if the format string is still bad
+            # If logger is not defined in rss.py, this will cause a NameError.
+            # You might need to add 'import logging' and 'logger = logging.getLogger(__name__)' to rss.py
+            # or use a simple print() for debugging in development.
+            # logger.warning(
+            #     "Malformed date format string '%s' generated for strftime in filename template. Skipping format.",
+            #     date_format_str
+            # )
+            break # Exit loop to prevent infinite loop on malformed token
+        except Exception as e:
+            # Catch any other unexpected issues during this complex replacement
+            # logger.exception("An error occurred during custom date template replacement: %s", e)
+            break
+
+    # Substitui placeholders restantes, incluindo %publish_date% (fallback para a template simples)
+    # Esta linha deve ser a última a lidar com datas, após todas as templates complexas.
     return (
         name_template.replace("%file_name%", link_to_file_name(entity.link))
-        .replace("%publish_date%", time.strftime("%Y%m%d", entity.published_date)) # Manter como fallback se a template de cima não for usada.
-                                                                                # Se usar apenas %publish_date% no config, este é ativado.
-                                                                                # Se usar a template mais completa, este já não fará nada.
+        .replace("%publish_date%", time.strftime("%Y%m%d", entity.published_date))
         .replace("%file_extension%", link_to_extension(entity.link))
         .replace("%title%", str_to_filename(entity.title))
         .strip()
