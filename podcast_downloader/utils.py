@@ -80,19 +80,19 @@ class ConsoleOutputFormatter(logging.Formatter):
         if message.startswith('Downloading new episode of:'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"{self.DEFAULT}Downloading new episode of: {self.GREEN}\"{podcast_name}\"{self.RESET}"
+                f"{self.BLUE}Downloading new episode of: {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
 
         elif message.startswith('Nothing new for:'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"{self.DEFAULT}Nothing new for: {self.MAUVE}\"{podcast_name}\"{self.RESET}" # Use MAUVE para 'Nothing new'
+                f"{self.BLUE}Nothing new for: {self.MAUVE}\"{podcast_name}\"{self.RESET}" # Use MAUVE para 'Nothing new'
             )
 
         elif message.startswith('Checking'):
             podcast_name = record.args[0] if record.args else "?"
             formatted_message = (
-                f"{self.DEFAULT}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
+                f"{self.BLUE}Checking {self.GREEN}\"{podcast_name}\"{self.RESET}"
             )
         
         elif message.startswith("    -> Source URL:"):
@@ -115,7 +115,7 @@ class ConsoleOutputFormatter(logging.Formatter):
             filename = record.args[0] if record.args else "?"
             # Corrigido: Similarmente, garanta que a cor da parte "Last downloaded file:" fecha.
             formatted_message = (
-                f"{self.DEFAULT}Last downloaded file: {self.RESET}" # Texto inicial BLUE e RESET
+                f"{self.BLUE}Last downloaded file: {self.RESET}" # Texto inicial BLUE e RESET
                 f"{self.SAPPHIRE}\"{filename}\"{self.RESET}"     # Nome do ficheiro SAPPHIRE e RESET
             )
  
