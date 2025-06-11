@@ -109,21 +109,27 @@ class ConsoleOutputFormatter(logging.Formatter):
         
         elif message.startswith("    -> Source URL:"):
             url = record.args[0] if record.args else "?"
+            # Corrigido: Garante que o LAVENDER fecha antes de SKY, e SKY fecha antes de RESET final da linha.
             formatted_message = (
-                f"\n{self.LAVENDER}    -> Source URL: {self.SKY}\"{url}\"{self.RESET}"
+                f"\n{self.LAVENDER}    -> Source URL: {self.RESET}" # Texto inicial LAVENDER e RESET
+                f"{self.SKY}\"{url}\"{self.RESET}"                  # URL SKY e RESET
             )
         
         elif message.startswith('    -> Saved as:'):
             filename = record.args[0] if record.args else "?"
+            # Corrigido: Garante que o LAVENDER fecha antes de SAPPHIRE, e SAPPHIRE fecha antes de RESET final da linha.
             formatted_message = (
-                f"\n{self.LAVENDER}    -> Saved as:    {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+                f"\n{self.LAVENDER}    -> Saved as:    {self.RESET}" # Texto inicial LAVENDER e RESET
+                f"{self.SAPPHIRE}\"{filename}\"{self.RESET}"         # Nome do ficheiro SAPPHIRE e RESET
             )
         
         elif message.startswith('Last downloaded file:'):
             filename = record.args[0] if record.args else "?"
-            # Removido o '\n' aqui para não adicionar uma linha extra se a mensagem anterior não o tiver.
-            # O '\n' é adicionado no final para todas as linhas formatadas.
-            formatted_message = f"{self.BLUE}Last downloaded file: {self.SAPPHIRE}\"{filename}\"{self.RESET}"
+            # Corrigido: Similarmente, garanta que a cor da parte "Last downloaded file:" fecha.
+            formatted_message = (
+                f"{self.BLUE}Last downloaded file: {self.RESET}" # Texto inicial BLUE e RESET
+                f"{self.SAPPHIRE}\"{filename}\"{self.RESET}"     # Nome do ficheiro SAPPHIRE e RESET
+            )
  
         else: # Este é o bloco para mensagens genéricas que não foram capturadas acima
             default_color = self.LEVEL_COLORS.get(record.levelno, self.BLUE)
