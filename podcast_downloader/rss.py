@@ -4,7 +4,7 @@ import urllib.request
 from dataclasses import dataclass
 from functools import partial
 from itertools import takewhile, islice
-from typing import Callable, Generator, Iterator, List
+from typing import Callable, Dict, Generator, Iterator, List
 import unicodedata
 import feedparser
 from urllib.parse import urlsplit, unquote
@@ -91,11 +91,16 @@ def limit_file_name(maximum_length: int, file_name: str) -> str:
     )
 
 
-def load_feed(rss_link: str) -> feedparser.FeedParserDict:
+def load_feed(
+    rss_link: str, headers: Dict[str, str] = None
+) -> feedparser.FeedParserDict:
+    if urlsplit(rss_link).scheme not in ("http", "https"):
+        return feedparser.parse(rss_link)
+
+    request_headers = headers or {"User-Agent": "podcast-downloader"}
+
     try:
-        request = urllib.request.Request(
-            rss_link, headers={"User-Agent": "podcast-downloader"}
-        )
+        request = urllib.request.Request(rss_link, headers=request_headers)
         with urllib.request.urlopen(request, timeout=FEED_TIMEOUT_SECONDS) as response:
             return feedparser.parse(response)
     except Exception as error:
@@ -138,7 +143,10 @@ def flatten_rss_links_data(
 
             entities.append(RSSEntity(published_date, title, link_type, href))
 
-    yield from sorted(entities, key=lambda entity: entity.published_date, reverse=True)
+    if len(entities) > 1 and entities[0].published_date < entities[-1].published_date:
+        entities.reverse()
+
+    yield from entities
 
 
 def build_only_allowed_filter_for_link_data(
