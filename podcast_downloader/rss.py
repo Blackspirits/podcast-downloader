@@ -120,6 +120,8 @@ def get_raw_rss_entries_from_feed(
 def flatten_rss_links_data(
     source: Generator[feedparser.FeedParserDict, None, None]
 ) -> Generator[RSSEntity, None, None]:
+    entities = []
+
     for rss_entry in source:
         published_date = rss_entry.get("published_parsed") or rss_entry.get(
             "updated_parsed"
@@ -134,7 +136,9 @@ def flatten_rss_links_data(
             if not link_type or not href:
                 continue
 
-            yield RSSEntity(published_date, title, link_type, href)
+            entities.append(RSSEntity(published_date, title, link_type, href))
+
+    yield from sorted(entities, key=lambda entity: entity.published_date, reverse=True)
 
 
 def build_only_allowed_filter_for_link_data(
