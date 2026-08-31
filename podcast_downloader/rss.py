@@ -1,5 +1,6 @@
 import re
 import time
+import urllib.request
 from dataclasses import dataclass
 from functools import partial
 from itertools import takewhile, islice
@@ -10,6 +11,7 @@ from urllib.parse import urlsplit, unquote
 
 
 FILE_NAME_CHARACTER_LIMIT = 255
+FEED_TIMEOUT_SECONDS = 30
 
 
 @dataclass
@@ -90,11 +92,23 @@ def limit_file_name(maximum_length: int, file_name: str) -> str:
 
 
 def load_feed(rss_link: str) -> feedparser.FeedParserDict:
-    return feedparser.parse(rss_link)
+    try:
+        request = urllib.request.Request(
+            rss_link, headers={"User-Agent": "podcast-downloader"}
+        )
+        with urllib.request.urlopen(request, timeout=FEED_TIMEOUT_SECONDS) as response:
+            return feedparser.parse(response)
+    except Exception as error:
+        return feedparser.FeedParserDict(
+            feed=feedparser.FeedParserDict(),
+            entries=[],
+            bozo=True,
+            bozo_exception=error,
+        )
 
 
 def get_feed_title_from_feed(feedParser: feedparser.FeedParserDict) -> str:
-    return feedParser.feed.title
+    return feedParser.feed.get("title", "")
 
 
 def get_raw_rss_entries_from_feed(
@@ -106,16 +120,21 @@ def get_raw_rss_entries_from_feed(
 def flatten_rss_links_data(
     source: Generator[feedparser.FeedParserDict, None, None]
 ) -> Generator[RSSEntity, None, None]:
-    return (
-        RSSEntity(
-            rss_entry.published_parsed,
-            rss_entry.title,
-            link.type,
-            link.get("href", None),
+    for rss_entry in source:
+        published_date = rss_entry.get("published_parsed") or rss_entry.get(
+            "updated_parsed"
         )
-        for rss_entry in source
-        for link in rss_entry.links
-    )
+        if published_date is None:
+            continue
+
+        title = rss_entry.get("title", "")
+        for link in rss_entry.get("links", []):
+            link_type = link.get("type")
+            href = link.get("href")
+            if not link_type or not href:
+                continue
+
+            yield RSSEntity(published_date, title, link_type, href)
 
 
 def build_only_allowed_filter_for_link_data(
