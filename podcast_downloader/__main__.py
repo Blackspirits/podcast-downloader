@@ -18,18 +18,22 @@ from podcast_downloader.configuration import (
 )
 from .utils import ConsoleOutputFormatter, compose
 from .downloaded import get_downloaded_files, get_extensions_checker
+from .filenames import (
+    finalize_file_name,
+    get_file_name_limit,
+    safe_destination_path,
+)
 from .parameters import merge_parameters_collection, load_configuration_file, parse_argv
 from .rss import (
     RSSEntity,
     build_only_allowed_filter_for_link_data,
-    file_template_to_file_name,
     flatten_rss_links_data,
     get_feed_title_from_feed,
     get_raw_rss_entries_from_feed,
-    limit_file_name,
     load_feed,
     only_entities_from_date,
     only_last_n_entities,
+    raw_file_template_to_file_name,
 )
 from .state import episode_identity, get_episode, load_state, mark_episode, save_state
 
@@ -45,7 +49,7 @@ def download_rss_entity_to_path(
     path: str,
     rss_entity: RSSEntity,
 ) -> bool:
-    path_to_file = os.path.join(path, to_file_name_function(rss_entity))
+    path_to_file = safe_destination_path(path, to_file_name_function(rss_entity))
     path_to_partial_file = path_to_file + ".part"
 
     try:
@@ -165,8 +169,7 @@ def is_windows_running():
 
 
 def get_system_file_name_limit(sub_configuration: Dict[str, str]) -> int:
-    # on Windows, the file name is limited to 260 characters including the path to it
-    return 255 if is_windows_running() else 260 - len(sub_configuration["path"]) - 1
+    return get_file_name_limit(os.path.expanduser(sub_configuration["path"]))
 
 
 def configuration_to_function_rss_to_name(
@@ -190,7 +193,7 @@ def configuration_to_function_rss_to_name(
             default_file_name_template_with_date,
         )
 
-    return partial(file_template_to_file_name, configuration_value)
+    return partial(raw_file_template_to_file_name, configuration_value)
 
 
 def load_the_last_run_date_store_now(marker_file_path, now):
@@ -371,11 +374,11 @@ if __name__ == "__main__":
     )
 
     for rss_source in RSS_SOURCES:
-        file_length_limit = get_system_file_name_limit(rss_source)
         rss_source_name = rss_source.get(configuration.CONFIG_PODCASTS_NAME, None)
         rss_source_path = os.path.expanduser(
             rss_source[configuration.CONFIG_PODCASTS_PATH]
         )
+        file_length_limit = get_system_file_name_limit(rss_source)
         rss_source_link = rss_source[configuration.CONFIG_PODCASTS_RSS_LINK]
         rss_disable = rss_source.get(configuration.CONFIG_PODCASTS_DISABLE, False)
         rss_file_name_template_value = rss_source.get(
@@ -442,9 +445,13 @@ if __name__ == "__main__":
             get_raw_rss_entries_from_feed,
         )(feed)
 
-        to_real_podcast_file_name = compose(
-            partial(limit_file_name, file_length_limit), to_name_function
-        )
+        def to_real_podcast_file_name(entry: RSSEntity) -> str:
+            raw_file_name = to_name_function(entry)
+            return finalize_file_name(
+                raw_file_name,
+                file_length_limit,
+                episode_identity(entry, rss_source_link),
+            )
 
         episode_state = load_state(rss_source_path)
         if bootstrap_episode_state(
@@ -502,10 +509,11 @@ if __name__ == "__main__":
                 real_podcast_file_name = to_real_podcast_file_name(rss_entry)
                 wanted_podcast_file_name = to_name_function(rss_entry)
 
-                if len(wanted_podcast_file_name) > file_length_limit:
+                if real_podcast_file_name != wanted_podcast_file_name:
                     logger.info(
-                        'Your system cannot support the full podcast file name "%s". The name will be shortened',
+                        'The podcast file name "%s" was adjusted to "%s" for filesystem compatibility',
                         wanted_podcast_file_name,
+                        real_podcast_file_name,
                     )
 
                 logger.info(
