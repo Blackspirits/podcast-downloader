@@ -1,6 +1,8 @@
 import io
+import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from podcast_downloader.rss import (
@@ -68,7 +70,7 @@ class RssResilienceTest(unittest.TestCase):
 
         self.assertEqual([], list(flatten_rss_links_data(iter(entries))))
 
-    def test_entries_are_normalized_newest_first(self):
+    def test_ascending_entries_are_reversed(self):
         older = time.strptime("2026-08-01", "%Y-%m-%d")
         newer = time.strptime("2026-08-02", "%Y-%m-%d")
         entries = [
@@ -88,6 +90,33 @@ class RssResilienceTest(unittest.TestCase):
 
         self.assertEqual(["Newer", "Older"], [entry.title for entry in result])
 
+    def test_descending_entries_keep_their_order_including_ties(self):
+        newest = time.strptime("2026-08-03", "%Y-%m-%d")
+        tied = time.strptime("2026-08-02", "%Y-%m-%d")
+        entries = [
+            {
+                "title": "Newest",
+                "published_parsed": newest,
+                "links": [{"type": "audio/mpeg", "href": "https://example.com/new.mp3"}],
+            },
+            {
+                "title": "First tied",
+                "published_parsed": tied,
+                "links": [{"type": "audio/mpeg", "href": "https://example.com/first.mp3"}],
+            },
+            {
+                "title": "Second tied",
+                "published_parsed": tied,
+                "links": [{"type": "audio/mpeg", "href": "https://example.com/second.mp3"}],
+            },
+        ]
+
+        result = list(flatten_rss_links_data(iter(entries)))
+
+        self.assertEqual(
+            ["Newest", "First tied", "Second tied"], [entry.title for entry in result]
+        )
+
     def test_missing_feed_title_returns_empty_string(self):
         feed = {"feed": {}}
 
@@ -98,17 +127,31 @@ class RssResilienceTest(unittest.TestCase):
 
         self.assertEqual("", get_feed_title_from_feed(Feed(feed)))
 
-    def test_feed_download_uses_timeout(self):
+    def test_feed_download_uses_timeout_and_configured_headers(self):
         xml = b"""<?xml version='1.0'?><rss version='2.0'><channel><title>Test</title></channel></rss>"""
+        headers = {"User-Agent": "custom-agent", "Authorization": "Bearer test"}
 
         with patch(
             "podcast_downloader.rss.urllib.request.urlopen",
             return_value=Response(xml),
         ) as urlopen:
-            feed = load_feed("https://example.com/feed.xml")
+            feed = load_feed("https://example.com/feed.xml", headers)
 
         self.assertEqual("Test", feed.feed.title)
         self.assertEqual(FEED_TIMEOUT_SECONDS, urlopen.call_args.kwargs["timeout"])
+        request = urlopen.call_args.args[0]
+        self.assertEqual("custom-agent", request.get_header("User-agent"))
+        self.assertEqual("Bearer test", request.get_header("Authorization"))
+
+    def test_local_feed_path_remains_supported(self):
+        xml = """<?xml version='1.0'?><rss version='2.0'><channel><title>Local</title></channel></rss>"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "feed.xml"
+            path.write_text(xml, encoding="utf-8")
+            feed = load_feed(str(path))
+
+        self.assertEqual("Local", feed.feed.title)
 
     def test_feed_network_error_becomes_bozo_feed(self):
         with patch(
