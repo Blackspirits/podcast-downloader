@@ -68,6 +68,26 @@ class RssResilienceTest(unittest.TestCase):
 
         self.assertEqual([], list(flatten_rss_links_data(iter(entries))))
 
+    def test_entries_are_normalized_newest_first(self):
+        older = time.strptime("2026-08-01", "%Y-%m-%d")
+        newer = time.strptime("2026-08-02", "%Y-%m-%d")
+        entries = [
+            {
+                "title": "Older",
+                "published_parsed": older,
+                "links": [{"type": "audio/mpeg", "href": "https://example.com/old.mp3"}],
+            },
+            {
+                "title": "Newer",
+                "published_parsed": newer,
+                "links": [{"type": "audio/mpeg", "href": "https://example.com/new.mp3"}],
+            },
+        ]
+
+        result = list(flatten_rss_links_data(iter(entries)))
+
+        self.assertEqual(["Newer", "Older"], [entry.title for entry in result])
+
     def test_missing_feed_title_returns_empty_string(self):
         feed = {"feed": {}}
 
