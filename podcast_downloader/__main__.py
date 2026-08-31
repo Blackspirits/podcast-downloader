@@ -1,4 +1,6 @@
 import os
+import shutil
+import tempfile
 from typing import Callable, Dict, Iterable, List, Tuple
 import urllib
 import argparse
@@ -36,21 +38,54 @@ from .rss import (
     only_last_n_entities,
 )
 
+DOWNLOAD_TIMEOUT_SECONDS = 30
+DOWNLOAD_CHUNK_SIZE = 1024 * 1024
+REJECTED_CONTENT_TYPES = {"text/html", "application/json"}
+
 
 def download_rss_entity_to_path(
     headers: List[Tuple[str, str]],
     to_file_name_function: Callable[[RSSEntity], str],
     path: str,
     rss_entity: RSSEntity,
-):
+) -> bool:
     path_to_file = os.path.join(path, to_file_name_function(rss_entity))
+    path_to_partial_file = None
 
     try:
         request = urllib.request.Request(rss_entity.link, headers=headers)
 
-        with urllib.request.urlopen(request) as response:
-            with open(path_to_file, "wb") as file:
-                file.write(response.read())
+        with urllib.request.urlopen(
+            request, timeout=DOWNLOAD_TIMEOUT_SECONDS
+        ) as response:
+            content_type = response.headers.get_content_type()
+            if content_type in REJECTED_CONTENT_TYPES:
+                raise ValueError(
+                    'Unexpected content type "%s" for podcast file' % content_type
+                )
+
+            expected_length = response.headers.get("Content-Length")
+
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                dir=path,
+                prefix=".podcast-downloader-",
+                suffix=".part",
+                delete=False,
+            ) as partial_file:
+                path_to_partial_file = partial_file.name
+                shutil.copyfileobj(response, partial_file, length=DOWNLOAD_CHUNK_SIZE)
+
+            if expected_length is not None:
+                actual_length = os.path.getsize(path_to_partial_file)
+                if actual_length != int(expected_length):
+                    raise IOError(
+                        "Downloaded file size does not match the Content-Length header"
+                    )
+
+        os.replace(path_to_partial_file, path_to_file)
+        path_to_partial_file = None
+        return True
 
     except Exception:
         logger.exception(
@@ -58,6 +93,11 @@ def download_rss_entity_to_path(
             rss_entity.link,
             path_to_file,
         )
+        return False
+
+    finally:
+        if path_to_partial_file and os.path.exists(path_to_partial_file):
+            os.remove(path_to_partial_file)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -373,9 +413,9 @@ if __name__ == "__main__":
                     to_real_podcast_file_name(rss_entry),
                 )
 
-                download_podcast(rss_source_path, rss_entry)
-                DOWNLOADS_LIMITS -= 1
-                first_element = False
+                if download_podcast(rss_source_path, rss_entry):
+                    DOWNLOADS_LIMITS -= 1
+                    first_element = False
         else:
             logger.info("%s: Nothing new", rss_source_name)
 
