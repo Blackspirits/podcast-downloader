@@ -143,7 +143,15 @@ def flatten_rss_links_data(
 
             entities.append(RSSEntity(published_date, title, link_type, href))
 
-    if len(entities) > 1 and entities[0].published_date < entities[-1].published_date:
+    is_ascending = all(
+        first.published_date <= second.published_date
+        for first, second in zip(entities, entities[1:])
+    )
+    if (
+        len(entities) > 1
+        and is_ascending
+        and entities[0].published_date < entities[-1].published_date
+    ):
         entities.reverse()
 
     yield from entities
