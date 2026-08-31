@@ -17,16 +17,11 @@ from podcast_downloader.configuration import (
     parse_day_label,
 )
 from .utils import ConsoleOutputFormatter, compose
-from .downloaded import (
-    get_downloaded_files,
-    get_extensions_checker,
-    get_last_downloaded_file_before_gap,
-)
+from .downloaded import get_downloaded_files, get_extensions_checker
 from .parameters import merge_parameters_collection, load_configuration_file, parse_argv
 from .rss import (
     RSSEntity,
     build_only_allowed_filter_for_link_data,
-    build_only_new_entities,
     file_template_to_file_name,
     flatten_rss_links_data,
     get_feed_title_from_feed,
@@ -36,6 +31,7 @@ from .rss import (
     only_entities_from_date,
     only_last_n_entities,
 )
+from .state import episode_identity, get_episode, load_state, mark_episode, save_state
 
 
 DOWNLOAD_TIMEOUT_SECONDS = 30
@@ -222,6 +218,109 @@ def load_the_last_run_date_store_now(marker_file_path, now):
     return access_time
 
 
+def bootstrap_episode_state(
+    state: dict,
+    entries: List[RSSEntity],
+    downloaded_files: Iterable[str],
+    to_file_name_function: Callable[[RSSEntity], str],
+    feed_url: str,
+) -> bool:
+    downloaded_files = set(downloaded_files)
+    changed = False
+
+    for entry in entries:
+        identity = episode_identity(entry, feed_url)
+        if get_episode(state, identity) is not None:
+            continue
+
+        file_name = to_file_name_function(entry)
+        if file_name in downloaded_files:
+            mark_episode(state, identity, entry, file_name)
+            changed = True
+
+    return changed
+
+
+def is_episode_present(
+    state: dict,
+    entry: RSSEntity,
+    downloaded_files: Iterable[str],
+    feed_url: str,
+    fill_up_gaps: bool,
+) -> bool:
+    record = get_episode(state, episode_identity(entry, feed_url))
+    if record is None:
+        return False
+
+    if not fill_up_gaps:
+        return True
+
+    return record.get("filename") in downloaded_files
+
+
+def find_state_boundary(
+    state: dict,
+    entries: List[RSSEntity],
+    downloaded_files: Iterable[str],
+    feed_url: str,
+    fill_up_gaps: bool,
+):
+    downloaded_files = set(downloaded_files)
+
+    if not fill_up_gaps:
+        return next(
+            (
+                entry
+                for entry in entries
+                if is_episode_present(
+                    state, entry, downloaded_files, feed_url, fill_up_gaps
+                )
+            ),
+            None,
+        )
+
+    last_present = None
+    for entry in reversed(entries):
+        if is_episode_present(
+            state, entry, downloaded_files, feed_url, fill_up_gaps
+        ):
+            last_present = entry
+        elif last_present is not None:
+            return last_present
+
+    return last_present
+
+
+def select_missing_entries(
+    state: dict,
+    entries: List[RSSEntity],
+    downloaded_files: Iterable[str],
+    feed_url: str,
+    fill_up_gaps: bool,
+    on_empty_directory: Callable[[Iterable[RSSEntity]], Iterable[RSSEntity]],
+) -> Tuple[List[RSSEntity], RSSEntity]:
+    downloaded_files = set(downloaded_files)
+    boundary = find_state_boundary(
+        state, entries, downloaded_files, feed_url, fill_up_gaps
+    )
+
+    if boundary is None:
+        return list(on_empty_directory(entries)), None
+
+    boundary_identity = episode_identity(boundary, feed_url)
+    missing = []
+    for entry in entries:
+        if episode_identity(entry, feed_url) == boundary_identity:
+            break
+
+        if not is_episode_present(
+            state, entry, downloaded_files, feed_url, fill_up_gaps
+        ):
+            missing.append(entry)
+
+    return missing, boundary
+
+
 if __name__ == "__main__":
     import sys
     from logging import getLogger, StreamHandler, INFO
@@ -347,25 +446,36 @@ if __name__ == "__main__":
             partial(limit_file_name, file_length_limit), to_name_function
         )
 
-        all_feed_files = list(map(to_real_podcast_file_name, all_feed_entries))[::-1]
-        downloaded_files = [feed for feed in all_feed_files if feed in downloaded_files]
+        episode_state = load_state(rss_source_path)
+        if bootstrap_episode_state(
+            episode_state,
+            all_feed_entries,
+            downloaded_files,
+            to_real_podcast_file_name,
+            rss_source_link,
+        ):
+            save_state(rss_source_path, episode_state)
 
-        last_downloaded_file = None
-        if downloaded_files:
-            if rss_fill_up_gaps:
-                last_downloaded_file = get_last_downloaded_file_before_gap(
-                    all_feed_files, downloaded_files
-                )
-            else:
-                last_downloaded_file = downloaded_files[-1]
+        missing_files_links, boundary = select_missing_entries(
+            episode_state,
+            all_feed_entries,
+            downloaded_files,
+            rss_source_link,
+            rss_fill_up_gaps,
+            on_empty_directory,
+        )
 
-            download_limiter_function = partial(
-                build_only_new_entities(to_name_function), last_downloaded_file
-            )
+        if boundary is None:
+            last_downloaded_file = None
         else:
-            download_limiter_function = on_empty_directory
-
-        missing_files_links = compose(list, download_limiter_function)(all_feed_entries)
+            boundary_record = get_episode(
+                episode_state, episode_identity(boundary, rss_source_link)
+            )
+            last_downloaded_file = (
+                boundary_record.get("filename")
+                if boundary_record
+                else to_real_podcast_file_name(boundary)
+            )
 
         logger.info('Last downloaded file "%s"', last_downloaded_file or "<none>")
 
@@ -386,12 +496,11 @@ if __name__ == "__main__":
                         time.sleep(rss_download_delay)
                         first_element = False
 
-                wanted_podcast_file_name = to_name_function(rss_entry)
-                if wanted_podcast_file_name in downloaded_files:
-                    continue
-
                 if DOWNLOADS_LIMITS == 0:
                     continue
+
+                real_podcast_file_name = to_real_podcast_file_name(rss_entry)
+                wanted_podcast_file_name = to_name_function(rss_entry)
 
                 if len(wanted_podcast_file_name) > file_length_limit:
                     logger.info(
@@ -403,10 +512,16 @@ if __name__ == "__main__":
                     '%s: Downloading file: "%s" saved as "%s"',
                     rss_source_name,
                     rss_entry.link,
-                    to_real_podcast_file_name(rss_entry),
+                    real_podcast_file_name,
                 )
 
                 if download_podcast(rss_source_path, rss_entry):
+                    identity = episode_identity(rss_entry, rss_source_link)
+                    mark_episode(
+                        episode_state, identity, rss_entry, real_podcast_file_name
+                    )
+                    save_state(rss_source_path, episode_state)
+                    downloaded_files.append(real_podcast_file_name)
                     DOWNLOADS_LIMITS -= 1
         else:
             logger.info("%s: Nothing new", rss_source_name)
