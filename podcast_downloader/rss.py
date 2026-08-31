@@ -1,13 +1,14 @@
-import re
 import time
 import urllib.request
+import unicodedata
 from dataclasses import dataclass
 from functools import partial
 from itertools import takewhile, islice
 from typing import Callable, Generator, Iterator, List
-import unicodedata
 import feedparser
 from urllib.parse import urlsplit, unquote
+
+from .filenames import fit_utf8_prefix, sanitize_file_component, utf8_size
 
 
 FILE_NAME_CHARACTER_LIMIT = 255
@@ -23,35 +24,43 @@ class RSSEntity:
     guid: str = None
 
 
-def link_to_file_name_with_extension(link: str) -> str:
+def raw_link_to_file_name_with_extension(link: str) -> str:
     path = urlsplit(link).path
-    return unquote(path).rsplit("/")[-1].replace("\\", "").lower()
+    encoded_file_name = path.rsplit("/", 1)[-1]
+    return unquote(encoded_file_name).lower()
+
+
+def link_to_file_name_with_extension(link: str) -> str:
+    return sanitize_file_component(raw_link_to_file_name_with_extension(link))
+
+
+def raw_link_to_file_name(link: str) -> str:
+    file_name = raw_link_to_file_name_with_extension(link)
+    if "." in file_name:
+        return file_name.rpartition(".")[0]
+    return file_name
 
 
 def link_to_file_name(link: str) -> str:
-    link = link_to_file_name_with_extension(link)
-    if link.find(".") >= 0:
-        link = link.rpartition(".")[0]
-
-    return link
+    return sanitize_file_component(raw_link_to_file_name(link))
 
 
-def link_to_extension(link: str) -> str:
-    link = link_to_file_name_with_extension(link)
-    if link.find(".") >= 0:
-        return link.rpartition(".")[-1]
-
+def raw_link_to_extension(link: str) -> str:
+    file_name = raw_link_to_file_name_with_extension(link)
+    if "." in file_name:
+        return file_name.rpartition(".")[-1]
     return ""
 
 
+def link_to_extension(link: str) -> str:
+    return sanitize_file_component(raw_link_to_extension(link))
+
+
 def str_to_filename(value: str) -> str:
-    value = unicodedata.normalize("NFKC", value)
-    value = re.sub(r"[\u0000-\u001F\u007F\*/:<>\"\?\\\|]", " ", value)
-
-    return value.strip()
+    return sanitize_file_component(value)
 
 
-def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
+def _render_file_template(name_template: str, entity: RSSEntity) -> str:
     publish_date_template = "%publish_date:"
     publish_date_template_len = len(publish_date_template)
 
@@ -68,28 +77,42 @@ def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
         )
         name_template = name_template.replace(token, result)
 
+    title = unicodedata.normalize("NFC", entity.title or "").strip()
     return (
-        name_template.replace("%file_name%", link_to_file_name(entity.link))
+        name_template.replace("%file_name%", raw_link_to_file_name(entity.link))
         .replace("%publish_date%", time.strftime("%Y%m%d", entity.published_date))
-        .replace("%file_extension%", link_to_extension(entity.link))
-        .replace("%title%", str_to_filename(entity.title))
+        .replace("%file_extension%", raw_link_to_extension(entity.link))
+        .replace("%title%", title)
         .strip()
     )
 
 
-def limit_file_name(maximum_length: int, file_name: str) -> str:
-    last_dot_index = file_name.rfind(".")
-    if last_dot_index == -1:
-        return file_name[:maximum_length]
+def raw_file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
+    return _render_file_template(name_template, entity)
 
-    file_name_length = len(file_name)
-    if file_name_length <= maximum_length:
+
+def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
+    return sanitize_file_component(_render_file_template(name_template, entity))
+
+
+def limit_file_name(maximum_length: int, file_name: str) -> str:
+    if maximum_length <= 0:
+        return ""
+
+    file_name = sanitize_file_component(file_name)
+    if utf8_size(file_name) <= maximum_length:
         return file_name
 
-    return (
-        file_name[: maximum_length - file_name_length + last_dot_index]
-        + file_name[last_dot_index:]
-    )
+    stem, dot, extension = file_name.rpartition(".")
+    if not dot:
+        return fit_utf8_prefix(file_name, maximum_length)
+
+    extension_with_dot = "." + extension
+    available_for_stem = maximum_length - utf8_size(extension_with_dot)
+    if available_for_stem <= 0:
+        return fit_utf8_prefix(file_name, maximum_length)
+
+    return fit_utf8_prefix(stem, available_for_stem).rstrip(" .") + extension_with_dot
 
 
 def load_feed(rss_link: str) -> feedparser.FeedParserDict:
