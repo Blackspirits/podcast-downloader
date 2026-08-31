@@ -27,12 +27,22 @@ class RssResilienceTest(unittest.TestCase):
         entries = [
             {
                 "title": "Missing date",
-                "links": [{"type": "audio/mpeg", "href": "https://example.com/bad.mp3"}],
+                "links": [
+                    {
+                        "type": "audio/mpeg",
+                        "href": "https://example.com/bad.mp3",
+                    }
+                ],
             },
             {
                 "title": "Valid episode",
                 "published_parsed": valid_date,
-                "links": [{"type": "audio/mpeg", "href": "https://example.com/good.mp3"}],
+                "links": [
+                    {
+                        "type": "audio/mpeg",
+                        "href": "https://example.com/good.mp3",
+                    }
+                ],
             },
         ]
 
@@ -47,7 +57,12 @@ class RssResilienceTest(unittest.TestCase):
         entries = [
             {
                 "updated_parsed": updated_date,
-                "links": [{"type": "audio/mpeg", "href": "https://example.com/ep.mp3"}],
+                "links": [
+                    {
+                        "type": "audio/mpeg",
+                        "href": "https://example.com/ep.mp3",
+                    }
+                ],
             }
         ]
 
@@ -77,12 +92,22 @@ class RssResilienceTest(unittest.TestCase):
             {
                 "title": "Older",
                 "published_parsed": older,
-                "links": [{"type": "audio/mpeg", "href": "https://example.com/old.mp3"}],
+                "links": [
+                    {
+                        "type": "audio/mpeg",
+                        "href": "https://example.com/old.mp3",
+                    }
+                ],
             },
             {
                 "title": "Newer",
                 "published_parsed": newer,
-                "links": [{"type": "audio/mpeg", "href": "https://example.com/new.mp3"}],
+                "links": [
+                    {
+                        "type": "audio/mpeg",
+                        "href": "https://example.com/new.mp3",
+                    }
+                ],
             },
         ]
 
@@ -97,17 +122,32 @@ class RssResilienceTest(unittest.TestCase):
             {
                 "title": "Newest",
                 "published_parsed": newest,
-                "links": [{"type": "audio/mpeg", "href": "https://example.com/new.mp3"}],
+                "links": [
+                    {
+                        "type": "audio/mpeg",
+                        "href": "https://example.com/new.mp3",
+                    }
+                ],
             },
             {
                 "title": "First tied",
                 "published_parsed": tied,
-                "links": [{"type": "audio/mpeg", "href": "https://example.com/first.mp3"}],
+                "links": [
+                    {
+                        "type": "audio/mpeg",
+                        "href": "https://example.com/first.mp3",
+                    }
+                ],
             },
             {
                 "title": "Second tied",
                 "published_parsed": tied,
-                "links": [{"type": "audio/mpeg", "href": "https://example.com/second.mp3"}],
+                "links": [
+                    {
+                        "type": "audio/mpeg",
+                        "href": "https://example.com/second.mp3",
+                    }
+                ],
             },
         ]
 
@@ -115,6 +155,34 @@ class RssResilienceTest(unittest.TestCase):
 
         self.assertEqual(
             ["Newest", "First tied", "Second tied"], [entry.title for entry in result]
+        )
+
+    def test_descending_feed_with_recent_bottom_entry_is_not_reversed(self):
+        entries = []
+        for title, date in (
+            ("Episode 10", "2026-08-10"),
+            ("Episode 9", "2026-08-09"),
+            ("Episode 8", "2026-08-08"),
+            ("Trailer", "2026-08-20"),
+        ):
+            entries.append(
+                {
+                    "title": title,
+                    "published_parsed": time.strptime(date, "%Y-%m-%d"),
+                    "links": [
+                        {
+                            "type": "audio/mpeg",
+                            "href": f"https://example.com/{title}.mp3",
+                        }
+                    ],
+                }
+            )
+
+        result = list(flatten_rss_links_data(iter(entries)))
+
+        self.assertEqual(
+            ["Episode 10", "Episode 9", "Episode 8", "Trailer"],
+            [entry.title for entry in result],
         )
 
     def test_missing_feed_title_returns_empty_string(self):
@@ -128,7 +196,10 @@ class RssResilienceTest(unittest.TestCase):
         self.assertEqual("", get_feed_title_from_feed(Feed(feed)))
 
     def test_feed_download_uses_timeout_and_configured_headers(self):
-        xml = b"""<?xml version='1.0'?><rss version='2.0'><channel><title>Test</title></channel></rss>"""
+        xml = (
+            b"<?xml version='1.0'?><rss version='2.0'><channel>"
+            b"<title>Test</title></channel></rss>"
+        )
         headers = {"User-Agent": "custom-agent", "Authorization": "Bearer test"}
 
         with patch(
@@ -144,7 +215,10 @@ class RssResilienceTest(unittest.TestCase):
         self.assertEqual("Bearer test", request.get_header("Authorization"))
 
     def test_local_feed_path_remains_supported(self):
-        xml = """<?xml version='1.0'?><rss version='2.0'><channel><title>Local</title></channel></rss>"""
+        xml = (
+            "<?xml version='1.0'?><rss version='2.0'><channel>"
+            "<title>Local</title></channel></rss>"
+        )
 
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "feed.xml"
