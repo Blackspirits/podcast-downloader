@@ -4,7 +4,7 @@ import urllib.request
 from dataclasses import dataclass
 from functools import partial
 from itertools import takewhile, islice
-from typing import Callable, Dict, Generator, Iterator, List
+from typing import Callable, Dict, Generator, Iterator, List, Optional
 import unicodedata
 import feedparser
 from urllib.parse import urlsplit, unquote
@@ -92,12 +92,14 @@ def limit_file_name(maximum_length: int, file_name: str) -> str:
 
 
 def load_feed(
-    rss_link: str, headers: Dict[str, str] = None
+    rss_link: str, headers: Optional[Dict[str, str]] = None
 ) -> feedparser.FeedParserDict:
     if urlsplit(rss_link).scheme not in ("http", "https"):
         return feedparser.parse(rss_link)
 
-    request_headers = headers or {"User-Agent": "podcast-downloader"}
+    request_headers = (
+        headers if headers is not None else {"User-Agent": "podcast-downloader"}
+    )
 
     try:
         request = urllib.request.Request(rss_link, headers=request_headers)

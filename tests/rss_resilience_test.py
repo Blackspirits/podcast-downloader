@@ -214,6 +214,22 @@ class RssResilienceTest(unittest.TestCase):
         self.assertEqual("custom-agent", request.get_header("User-agent"))
         self.assertEqual("Bearer test", request.get_header("Authorization"))
 
+    def test_explicit_empty_headers_are_preserved(self):
+        xml = (
+            b"<?xml version='1.0'?><rss version='2.0'><channel>"
+            b"<title>Test</title></channel></rss>"
+        )
+
+        with patch(
+            "podcast_downloader.rss.urllib.request.urlopen",
+            return_value=Response(xml),
+        ) as urlopen:
+            feed = load_feed("https://example.com/feed.xml", {})
+
+        self.assertEqual("Test", feed.feed.title)
+        request = urlopen.call_args.args[0]
+        self.assertIsNone(request.get_header("User-agent"))
+
     def test_local_feed_path_remains_supported(self):
         xml = (
             "<?xml version='1.0'?><rss version='2.0'><channel>"
