@@ -1,3 +1,4 @@
+import re
 from typing import Callable, Dict
 
 from pytest_httpserver import HTTPServer
@@ -53,6 +54,11 @@ def test_failed_download_is_repeated_in_final_error_summary(
     runner = podcast_downloader.run()
     output = runner.get_output()
 
-    assert runner.is_containing("Finished with 1 recoverable error:")
+    plain_output = [
+        re.sub(r"\x1b\[[0-9;]*m", "", line) for line in output
+    ]
+    assert any(
+        "Finished with 1 recoverable error:" in line for line in plain_output
+    )
     assert sum("could not be saved to disk" in line for line in output) == 2
     assert podcast_directory.get_files_list() == set()

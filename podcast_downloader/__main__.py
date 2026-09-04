@@ -385,7 +385,7 @@ if __name__ == "__main__":
     if error_summary_handler.messages:
         error_count = len(error_summary_handler.messages)
         error_label = "error" if error_count == 1 else "errors"
-        logger.info(f"Finished with {error_count} recoverable {error_label}:")
+        logger.info("Finished with %d recoverable %s:", error_count, error_label)
         for error_message in error_summary_handler.messages:
             logger.info("- %s", error_message)
     else:
