@@ -260,9 +260,15 @@ if __name__ == "__main__":
             configuration.CONFIG_PODCAST_EXTENSIONS,
             CONFIGURATION[configuration.CONFIG_PODCAST_EXTENSIONS],
         )
-        rss_https_header = merge_parameters_collection(
-            CONFIGURATION[configuration.CONFIG_HTTP_HEADER],
-            rss_source.get(configuration.CONFIG_HTTP_HEADER, {}),
+        rss_source_http_headers = rss_source.get(configuration.CONFIG_HTTP_HEADER)
+        rss_https_header = (
+            {}
+            if configuration.CONFIG_HTTP_HEADER in rss_source
+            and rss_source_http_headers == {}
+            else merge_parameters_collection(
+                CONFIGURATION[configuration.CONFIG_HTTP_HEADER],
+                rss_source_http_headers or {},
+            )
         )
         rss_fill_up_gaps = rss_source.get(
             CONFIGURATION[configuration.CONFIG_FILL_UP_GAPS],
