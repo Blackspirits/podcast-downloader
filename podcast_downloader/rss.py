@@ -1,3 +1,4 @@
+import io
 import re
 import time
 import urllib.request
@@ -6,6 +7,7 @@ from functools import partial
 from itertools import takewhile, islice
 from typing import Callable, Dict, Generator, Iterator, List, Optional
 import unicodedata
+import xml.etree.ElementTree as ElementTree
 import feedparser
 from urllib.parse import urlsplit, unquote
 
@@ -91,11 +93,107 @@ def limit_file_name(maximum_length: int, file_name: str) -> str:
     )
 
 
+def sanitize_xml_for_element_tree(xml_data: bytes) -> bytes:
+    return re.sub(
+        rb"&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9A-Fa-f]+;)",
+        b"&amp;",
+        xml_data,
+    )
+
+
+def get_xml_namespace(xml_data: bytes, prefix: str) -> Optional[str]:
+    try:
+        for _, namespace in ElementTree.iterparse(
+            io.BytesIO(xml_data), events=("start-ns",)
+        ):
+            if namespace[0] == prefix:
+                return namespace[1]
+    except ElementTree.ParseError:
+        return None
+
+    return None
+
+
+def get_namespaced_text(
+    element: ElementTree.Element, namespace: str, name: str
+) -> Optional[str]:
+    child = element.find("{%s}%s" % (namespace, name))
+    if child is None or child.text is None:
+        return None
+
+    value = child.text.strip()
+    return value or None
+
+
+def get_podplay_entries(xml_data: bytes) -> List[feedparser.FeedParserDict]:
+    xml_data = sanitize_xml_for_element_tree(xml_data)
+    namespace = get_xml_namespace(xml_data, "pp")
+    if not namespace:
+        return []
+
+    try:
+        root = ElementTree.fromstring(xml_data)
+    except ElementTree.ParseError:
+        return []
+
+    episode_tag = "{%s}episode" % namespace
+    entries = []
+
+    for episode in root.iter(episode_tag):
+        url = get_namespaced_text(episode, namespace, "url")
+        mimetype = get_namespaced_text(episode, namespace, "mimetype")
+        published = get_namespaced_text(episode, namespace, "pubdate")
+        if not url or not mimetype or not published:
+            continue
+
+        try:
+            published_parsed = time.gmtime(int(published))
+        except (ValueError, OverflowError, OSError):
+            continue
+
+        entries.append(
+            feedparser.FeedParserDict(
+                title=get_namespaced_text(episode, namespace, "title") or "",
+                published_parsed=published_parsed,
+                links=[feedparser.FeedParserDict(type=mimetype, href=url)],
+            )
+        )
+
+    return entries
+
+
+def add_podplay_entries(
+    feed: feedparser.FeedParserDict, xml_data: bytes
+) -> feedparser.FeedParserDict:
+    feed_entries = feed.setdefault("entries", [])
+    existing_links = {
+        link.get("href")
+        for entry in feed_entries
+        for link in entry.get("links", [])
+        if link.get("href")
+    }
+
+    for entry in get_podplay_entries(xml_data):
+        url = entry["links"][0]["href"]
+        if url in existing_links:
+            continue
+
+        feed_entries.append(entry)
+        existing_links.add(url)
+
+    return feed
+
+
 def load_feed(
     rss_link: str, headers: Optional[Dict[str, str]] = None
 ) -> feedparser.FeedParserDict:
     if urlsplit(rss_link).scheme not in ("http", "https"):
-        return feedparser.parse(rss_link)
+        feed = feedparser.parse(rss_link)
+        try:
+            with open(rss_link, "rb") as source:
+                return add_podplay_entries(feed, source.read())
+        except (OSError, TypeError):
+            return feed
 
     request_headers = (
         headers if headers is not None else {"User-Agent": "podcast-downloader"}
@@ -104,7 +202,8 @@ def load_feed(
     try:
         request = urllib.request.Request(rss_link, headers=request_headers)
         with urllib.request.urlopen(request, timeout=FEED_TIMEOUT_SECONDS) as response:
-            return feedparser.parse(response)
+            xml_data = response.read()
+            return add_podplay_entries(feedparser.parse(xml_data), xml_data)
     except Exception as error:
         return feedparser.FeedParserDict(
             feed=feedparser.FeedParserDict(),
