@@ -16,7 +16,7 @@ It does not use any sort of database but requires a configuration file.
 The script is intended to be run periodically. Upon starting, it analyzes the directory where it previously stored downloaded files.
 It then compares these files with those listed in the RSS feed, identifying any missing ones and downloading them.
 
-The files searched by default are `mp3`.
+By default, Podcast Downloader downloads `.mp3` enclosures with MIME type `audio/mpeg`. Other media types, including video, can be enabled with `podcast_extensions`.
 
 The result of using the [example below](#configuration), on empty directories, will be:
 
@@ -118,6 +118,8 @@ command line parameters > configuration file > default values
 | `http_headers`       | key-value  | no        | `{"User-Agent": "podcast-downloader"}` | See [HTTP request headers](#http-request-headers) |
 | `fill_up_gaps`       | boolean    | no        | false                                  | See [Download files from gaps](#download-files-from-gaps) |
 | `download_delay`     | number     | no        | `0`                                    | See [Download delay](#download-delay) |
+| `max_rss_pages` | integer | no | `1000` | See [RSS pagination](#rss-pagination) |
+| `download_podcast_cover` | boolean | no | `false` | See [Podcast cover downloads](#podcast-cover-downloads) |
 
 ### Podcasts sub category
 
@@ -135,6 +137,8 @@ The `podcasts` segment is the part of configuration file where you provide the a
 | `require_date`       | boolean    | no       | `false`                                | **Deprecated** Is date of podcast should be added into name of file - use the `file_name_template`: `[%publish_date%] %file_name%.%file_extension%"` |
 | `http_headers`       | key-value  | no       | `{"User-Agent": "podcast-downloader"}` | See [HTTP request headers](#http-request-headers) |
 | `fill_up_gaps`       | boolean    | no       | false                                  | See [Download files from gaps](#download-files-from-gaps) |
+| `max_rss_pages` | integer | no | inherits global `1000` | See [RSS pagination](#rss-pagination) |
+| `download_podcast_cover` | boolean | no | inherits global `false` | See [Podcast cover downloads](#podcast-cover-downloads) |
 
 ### HTTP request headers
 
@@ -159,7 +163,7 @@ Example:
       "name": "Unua Podcast",
       "rss_link": "http://www.unuapodcast.org/feed.rss",
       "path": "~/podcasts/unua_podcast",
-      "https_headers": {
+      "http_headers": {
         "User-Agent": "Mozilla/5.0"
       }
     },
@@ -167,7 +171,7 @@ Example:
       "name": "Dua Podcast",
       "rss_link": "http://www.duapodcast.org/feed.rss",
       "path": "~/podcasts/dua_podcast",
-      "https_headers": {
+      "http_headers": {
         "Authorization": "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ=="
       }
     }
@@ -176,6 +180,86 @@ Example:
 ```
 
 In this example, the Unua Podcast will be download just with the header: `User-Agent: Mozilla/5.0`, and the Dua Podcast with: `User-Agent: podcast-downloader` and `Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==`.
+
+### RSS feed redirects
+
+RSS feed requests do not follow HTTP redirects to a **different origin**
+(protocol, hostname or port), even when the redirect is valid. This prevents
+configured feed headers such as `Authorization` or `Cookie` from being
+forwarded to an unexpected server. Same-origin redirects are still allowed.
+If a podcast feed has moved to another domain, update its `rss_link` in your
+configuration to the new URL rather than relying on a cross-origin redirect.
+
+### RSS pagination
+
+Some podcast feeds provide older episodes on subsequent RSS pages using an Atom
+`<link rel="next">`. The downloader follows these links and combines entries
+before applying the normal episode filters.
+
+`max_rss_pages` is the maximum number of RSS pages to load **per podcast**,
+including the first page. It defaults to **1000** (not 50), and accepts any
+positive integer. You can override it globally or for an individual podcast:
+
+```json
+{
+  "max_rss_pages": 1000,
+  "podcasts": [
+    {
+      "rss_link": "https://example.com/podcast/feed.xml",
+      "path": "~/podcasts/example",
+      "max_rss_pages": 5000
+    }
+  ]
+}
+```
+
+A 56-page feed is fully processed with the default setting. If a feed has
+more pages than the configured limit, the downloader logs an **error and
+skips that podcast for the current run** instead of treating incomplete
+history as a complete feed. Increase the limit for that podcast and rerun.
+Previously downloaded episodes are not deleted. Pagination also stops on
+repeated URLs. For security, each next-page URL must use the **same origin**
+(scheme, hostname and effective port) as the feed URL. HTTP redirects to
+another origin are also rejected before following them. When this happens
+the downloader skips the incomplete feed, rather than treating it as complete.
+This can reject feeds that deliberately paginate through a different domain
+or CDN; such feeds need an explicit, separately reviewed origin policy.
+
+Very large limits increase network requests, memory usage and run time.
+Choose a limit that fits the feed rather than disabling safeguards.
+
+### Podcast cover downloads
+
+Set `download_podcast_cover` to `true` globally, or for an individual
+podcast, to save the RSS/iTunes channel artwork as `cover.jpg`, `cover.png`
+or another supported image format. The feature is **disabled by default**.
+If a cover already exists, it is not downloaded again.
+
+```json
+{
+  "download_podcast_cover": true,
+  "podcasts": [
+    {
+      "rss_link": "https://example.com/podcast/feed.xml",
+      "path": "~/podcasts/example"
+    }
+  ]
+}
+```
+
+Cover downloads use a **30-second network timeout** and have a maximum
+response size of **20 MiB**, checked both against `Content-Length`
+(where provided) and while streaming. The destination is only published
+after a complete, nonempty response has been written to a unique
+temporary file. Failed downloads do not leave a published cover.
+
+**Security:** configured podcast headers (including `Authorization` and
+`Cookie`) are sent to the cover server only if it has the **same origin**
+(scheme, hostname and effective port) as the configured RSS URL. External
+CDNs and cross-origin redirects receive only a generic User-Agent, not the
+RSS credentials. Covers requiring those same credentials on another domain
+will need separately scoped authentication support; this intentional
+restriction avoids leaking credentials via feed-supplied artwork URLs.
 
 ### Download delay
 
@@ -195,7 +279,7 @@ The script accepts following command line arguments:
 | Short version | Long name              | Parameter           | Default                             | Note |
 |:--------------|:-----------------------|:-------------------:|:-----------------------------------:|:-----|
 |               | `--config`             | string              | `~/.podcast_downloader_config.json` | The placement of the configuration file |
-|               | `--downloads_limit`    | number              | infinity                            | The maximum number of downloaded mp3 files |
+|               | `--downloads_limit`    | number              | infinity                            | The maximum number of downloaded media files |
 |               | `--if_directory_empty` | string              | `download_last`                     | The general approach on empty directory |
 |               | `--download_delay`     | number              | `0`                                 | The waiting time (seconds) between downloads |
 
@@ -231,26 +315,31 @@ The `%publish_date%` by default gives result in format `YEARMMDD`. In order to c
 
 ## File types filter
 
-Podcasts are mostly stored as `*.mp3` files. By default Podcast Downloader looks just for them, ignoring all others types.
+Podcast Downloader filters RSS enclosure links by MIME type. By default it downloads only `.mp3` files advertised as `audio/mpeg`.
 
-If your podcast supports other types of media files, you can specified the file filters. Provide the  extension of the file (like `.mp3`) and type of link in RSS feed itself (for `mp3` it is `audio/mpeg`).
+Other audio or video media types can be enabled with `podcast_extensions`. Each entry maps the local file extension to the MIME type advertised by the RSS `<enclosure>` element. The downloader saves the enclosure as-is; it does not transcode or convert media.
 
-If you don't know the type of the file, you can look for it in the RSS file. Seek for `enclosure` tags, should looks like this:
+Setting `podcast_extensions` replaces the default mapping rather than extending it. Include `".mp3": "audio/mpeg"` if you want to keep downloading MP3 enclosures alongside additional media types.
+
+For example, a videocast that publishes MP4 enclosures can be enabled with `".mp4": "video/mp4"`.
+
+If you don't know the file type, look for the `enclosure` tags in the RSS feed. They should look like this:
 
 ```xml
-  <enclosure url="https://www.vidocast.url/podcast/episode23.m4a"
+  <enclosure url="https://www.videocast.url/podcast/episode23.mp4"
              length="14527149"
-             type="audio/x-m4a" />
+             type="video/mp4" />
 ```
 
-**Note**: the dot on the file extension is require.
+**Note**: the dot on the file extension is required.
 
 ### Example
 
 ```json
   "podcast_extensions": {
     ".mp3": "audio/mpeg",
-    ".m4a": "audio/x-m4a"
+    ".m4a": "audio/x-m4a",
+    ".mp4": "video/mp4"
   }
 ```
 
