@@ -112,26 +112,82 @@ def get_next_feed_link(feed: feedparser.FeedParserDict) -> Optional[str]:
     return None
 
 
+def _http_origin(url: str):
+    """Normalize the scheme, hostname and port for HTTP(S) origin checks."""
+    try:
+        parts = urlsplit(url)
+        if (
+            parts.scheme.lower() not in ("http", "https")
+            or not parts.hostname
+            or parts.username is not None
+            or parts.password is not None
+        ):
+            return None
+        port = parts.port or (443 if parts.scheme.lower() == "https" else 80)
+        if not 1 <= port <= 65535:
+            return None
+    except ValueError:
+        return None
+    return parts.scheme.lower(), parts.hostname.lower().rstrip("."), port
+
+
+class _SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def __init__(self, allowed_origin):
+        self.allowed_origin = allowed_origin
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if _http_origin(newurl) != self.allowed_origin:
+            raise RSSPaginationError(
+                "Blocked RSS feed redirect to a different origin"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _open_feed_request(request, timeout, allowed_origin):
+    opener = urllib.request.build_opener(_SameOriginRedirectHandler(allowed_origin))
+    return opener.open(request, timeout=timeout)
+
+
+def _fetch_paginated_feed(rss_link, allowed_origin, headers):
+    if _http_origin(rss_link) != allowed_origin:
+        raise RSSPaginationError(
+            "Blocked RSS pagination link outside the initial feed origin"
+        )
+    page = _load_single_feed(rss_link, headers, allowed_origin=allowed_origin)
+    if page.get("bozo", False) and not page.entries:
+        raise RSSPaginationError(
+            "Could not load an RSS pagination page: %s"
+            % page.get("bozo_exception", "invalid feed")
+        )
+    return page
+
+
 def _load_single_feed(
-    rss_link: str, headers: Optional[Dict[str, str]] = None
+    rss_link: str,
+    headers: Optional[Dict[str, str]] = None,
+    allowed_origin=None,
 ) -> feedparser.FeedParserDict:
     if urlsplit(rss_link).scheme not in ("http", "https"):
         return feedparser.parse(rss_link)
 
     request_headers = headers if headers is not None else {"User-Agent": "podcast-downloader"}
+    origin = allowed_origin or _http_origin(rss_link)
 
     try:
+        if origin is None or _http_origin(rss_link) != origin:
+            raise RSSPaginationError("RSS feed URL does not match the allowed origin")
         request = urllib.request.Request(rss_link, headers=request_headers)
-        with urllib.request.urlopen(request, timeout=FEED_TIMEOUT_SECONDS) as response:
+        with _open_feed_request(request, FEED_TIMEOUT_SECONDS, origin) as response:
+            final_url = response.geturl() if hasattr(response, "geturl") else rss_link
+            if final_url and _http_origin(final_url) != origin:
+                raise RSSPaginationError(
+                    "Blocked RSS feed response from a different origin"
+                )
             response_headers = {
                 key.lower(): value
                 for key, value in getattr(response, "headers", {}).items()
             }
-            response_headers.setdefault(
-                "content-location",
-                (response.geturl() if hasattr(response, "geturl") else None)
-                or rss_link,
-            )
+            response_headers.setdefault("content-location", final_url or rss_link)
             return feedparser.parse(response, response_headers=response_headers)
     except Exception as error:
         return feedparser.FeedParserDict(
@@ -157,6 +213,7 @@ def load_feed(
     current_feed = feed
     current_link = rss_link
     visited_links = {rss_link}
+    allowed_origin = _http_origin(rss_link)
 
     while True:
         next_link = get_next_feed_link(current_feed)
@@ -169,11 +226,10 @@ def load_feed(
             or current_link
         )
         next_link = urljoin(base_link, next_link)
-        if urlsplit(next_link).scheme.lower() not in ("http", "https"):
-            logging.getLogger(__name__).warning(
-                "Ignoring non-HTTP RSS pagination link: %s", next_link
+        if allowed_origin is None or _http_origin(next_link) != allowed_origin:
+            raise RSSPaginationError(
+                "Blocked RSS pagination link outside the initial feed origin"
             )
-            break
         if next_link in visited_links:
             break
         if len(visited_links) >= max_pages:
@@ -183,7 +239,7 @@ def load_feed(
             )
 
         visited_links.add(next_link)
-        next_feed = _load_single_feed(next_link, headers)
+        next_feed = _fetch_paginated_feed(next_link, allowed_origin, headers)
         if next_feed.get("bozo", False) and not next_feed.entries:
             raise RSSPaginationError(
                 "Could not load RSS pagination page %s: %s"
