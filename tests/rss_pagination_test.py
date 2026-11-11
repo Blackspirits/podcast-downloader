@@ -37,9 +37,9 @@ class RssPaginationTest(unittest.TestCase):
         self.assertEqual(["first", "second", "third"], feed.entries)
         self.assertEqual(
             [
-                call("https://example.com/show/feed.xml?page=1"),
-                call("https://example.com/show/feed.xml?page=2"),
-                call("https://example.com/show/page3.xml"),
+                call("https://example.com/show/feed.xml?page=1", None),
+                call("https://example.com/show/feed.xml?page=2", None),
+                call("https://example.com/show/page3.xml", None),
             ],
             parse.call_args_list,
         )
@@ -73,11 +73,11 @@ class RssPaginationTest(unittest.TestCase):
             feed = load_feed("https://example.com/feed.xml")
 
         self.assertEqual(["first"], feed.entries)
-        parse.assert_called_once_with("https://example.com/feed.xml")
+        parse.assert_called_once_with("https://example.com/feed.xml", None)
 
     @patch("podcast_downloader.rss._load_single_feed")
     def test_feed_with_more_than_fifty_pages_downloads_all_pages(self, parse):
-        def make_feed(url):
+        def make_feed(url, headers=None):
             number = parse.call_count
             next_links = (
                 [{"rel": "next", "href": "?page=" + str(number + 1)}]
@@ -95,7 +95,7 @@ class RssPaginationTest(unittest.TestCase):
 
     @patch("podcast_downloader.rss._load_single_feed")
     def test_limit_raises_instead_of_returning_incomplete_history(self, parse):
-        def make_feed(url):
+        def make_feed(url, headers=None):
             number = parse.call_count
             return FakeFeed(
                 [url], [{"rel": "next", "href": "?page=" + str(number + 1)}]
