@@ -29,7 +29,6 @@ class MediaHttpHeadersTest(unittest.TestCase):
             "https://cdn.example.com/episode.mp3",
             "http://example.com/episode.mp3",
             "https://example.com:8443/episode.mp3",
-            "https://example.com@evil.example/episode.mp3",
         ):
             with self.subTest(media_url=media_url):
                 result = _media_request_headers(
@@ -43,6 +42,7 @@ class MediaHttpHeadersTest(unittest.TestCase):
             "ftp://example.com/episode.mp3",
             "https://example.com:bad/file.mp3",
             "https://username:password@example.com/file.mp3",
+            "https://example.com@evil.example/episode.mp3",
         ):
             with self.subTest(media_url=media_url):
                 with self.assertRaises(ValueError):
