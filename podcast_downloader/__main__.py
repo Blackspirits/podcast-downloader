@@ -63,6 +63,9 @@ def _save_response_atomically(response, destination_path: str) -> None:
                 output.write(chunk)
                 bytes_written += len(chunk)
 
+            if bytes_written == 0:
+                raise IOError("Empty media response")
+
             headers = getattr(response, "headers", None)
             declared_size = headers.get("Content-Length") if headers else None
             if (
