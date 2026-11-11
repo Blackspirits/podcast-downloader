@@ -448,7 +448,7 @@ if __name__ == "__main__":
                 last_downloaded_file = downloaded_files[-1]
 
             download_limiter_function = partial(
-                build_only_new_entities(to_name_function), last_downloaded_file
+                build_only_new_entities(to_real_podcast_file_name), last_downloaded_file
             )
         else:
             download_limiter_function = on_empty_directory
@@ -467,7 +467,7 @@ if __name__ == "__main__":
 
             first_element = True
             for rss_entry in reversed(missing_files_links):
-                wanted_podcast_file_name = to_name_function(rss_entry)
+                wanted_podcast_file_name = to_real_podcast_file_name(rss_entry)
                 if wanted_podcast_file_name in downloaded_files:
                     continue
 
