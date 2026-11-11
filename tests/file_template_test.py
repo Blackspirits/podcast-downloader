@@ -57,6 +57,21 @@ class TestFileTemplateToFileNameConverter(unittest.TestCase):
                 f'File should be named "{expected_file_name}" not "{result}"',
             )
 
+    def test_encoded_separators_cannot_escape_podcast_directory(self):
+        for encoded_path in (
+            "%2e%2e%2f%2e%2e%2foutside.mp3",
+            "%2e%2e%5c%2e%2e%5coutside.mp3",
+        ):
+            with self.subTest(encoded_path=encoded_path):
+                entity = build_test_link_data(
+                    link="https://example.com/episodes/" + encoded_path
+                )
+                name = file_template_to_file_name(
+                    "%file_name%.%file_extension%", entity
+                )
+                self.assertNotIn("/", name)
+                self.assertNotIn("\\", name)
+
     def test_link_to_extension(self):
         # Assign
         test_parameters = [
