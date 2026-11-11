@@ -138,8 +138,26 @@ def is_windows_running():
 
 
 def get_system_file_name_limit(sub_configuration: Dict[str, str]) -> int:
-    # on Windows, the file name is limited to 260 characters including the path to it
-    return 255 if is_windows_running() else 260 - len(sub_configuration["path"]) - 1
+    path = os.path.abspath(os.path.expanduser(sub_configuration["path"]))
+
+    if is_windows_running():
+        # Conservative MAX_PATH fallback when Windows long paths are not enabled.
+        # 259 excludes the terminating NUL; reserve one character for the separator.
+        path_units = len(path.encode("utf-16-le")) // 2
+        remaining = min(255, 259 - path_units - 1)
+        if remaining < 1:
+            raise ValueError(
+                "Podcast destination path is too long for standard Windows paths"
+            )
+        return remaining
+
+    # On POSIX, filename components have their own limit, independent of
+    # total path length. PC_NAME_MAX is expressed in bytes, not characters.
+    try:
+        limit = os.pathconf(path, "PC_NAME_MAX")
+    except (AttributeError, OSError, ValueError):
+        limit = 255
+    return min(255, limit) if limit > 0 else 255
 
 
 def configuration_to_function_rss_to_name(
