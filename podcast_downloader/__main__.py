@@ -23,6 +23,7 @@ from .downloaded import (
 )
 from .parameters import merge_parameters_collection, load_configuration_file, parse_argv
 from .rss import (
+    _http_origin,
     DEFAULT_MAX_RSS_PAGES,
     RSSPaginationError,
     RSSEntity,
@@ -39,8 +40,45 @@ from .rss import (
 )
 
 
+MEDIA_TIMEOUT_SECONDS = 30
+
+
+class _MediaRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Allow media CDN redirects, without forwarding feed-specific headers."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None and _http_origin(req.full_url) != _http_origin(newurl):
+            for key in list(redirected.headers):
+                redirected.remove_header(key)
+            for key in list(redirected.unredirected_hdrs):
+                redirected.remove_header(key)
+            redirected.add_header("User-Agent", "podcast-downloader")
+        return redirected
+
+
+def _open_media_request(request):
+    opener = urllib.request.build_opener(_MediaRedirectHandler())
+    return opener.open(request, timeout=MEDIA_TIMEOUT_SECONDS)
+
+
+def _media_request_headers(
+    feed_url: str, media_url: str, headers: Dict[str, str]
+) -> Dict[str, str]:
+    media_origin = _http_origin(media_url)
+    if media_origin is None:
+        raise ValueError("Unsupported or malformed media URL")
+
+    if _http_origin(feed_url) == media_origin:
+        return headers
+    # Media enclosures frequently use third-party CDNs. Allow the download,
+    # but never send arbitrary feed authentication/configuration headers.
+    return {"User-Agent": "podcast-downloader"}
+
+
 def download_rss_entity_to_path(
-    headers: List[Tuple[str, str]],
+    headers: Dict[str, str],
+    source_url: str,
     to_file_name_function: Callable[[RSSEntity], str],
     path: str,
     rss_entity: RSSEntity,
@@ -48,9 +86,12 @@ def download_rss_entity_to_path(
     path_to_file = os.path.join(path, to_file_name_function(rss_entity))
 
     try:
-        request = urllib.request.Request(rss_entity.link, headers=headers)
+        media_headers = _media_request_headers(
+            source_url, rss_entity.link, headers
+        )
+        request = urllib.request.Request(rss_entity.link, headers=media_headers)
 
-        with urllib.request.urlopen(request) as response:
+        with _open_media_request(request) as response:
             with open(path_to_file, "wb") as file:
                 file.write(response.read())
 
@@ -370,6 +411,7 @@ if __name__ == "__main__":
             download_podcast = partial(
                 download_rss_entity_to_path,
                 rss_https_header,
+                rss_source_link,
                 to_real_podcast_file_name,
             )
 
