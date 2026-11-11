@@ -188,7 +188,7 @@ def test_redirect_to_other_origin_is_blocked_before_following(
     )
 
     result = podcast_downloader.run()
-    assert result.is_containing("Blocked RSS pagination redirect")
+    assert result.is_containing("Blocked RSS feed redirect")
     podcast_directory.is_containing_only([])
     assert [request.path for request, _ in httpserver.log] == [
         "/feed.xml", "/redirect.xml"
