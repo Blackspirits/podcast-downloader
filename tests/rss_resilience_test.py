@@ -2,10 +2,13 @@ import io
 import tempfile
 import time
 import unittest
+import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
 from podcast_downloader.rss import (
+    RSSPaginationError,
+    _SameOriginRedirectHandler,
     FEED_TIMEOUT_SECONDS,
     flatten_rss_links_data,
     get_feed_title_from_feed,
@@ -313,6 +316,42 @@ class RssResilienceTest(unittest.TestCase):
         self.assertTrue(feed.bozo)
         self.assertEqual([], feed.entries)
         self.assertIsInstance(feed.bozo_exception, TimeoutError)
+
+    def test_cross_origin_redirect_is_rejected_before_auth_can_follow(self):
+        request = urllib.request.Request(
+            "https://example.com/rss.xml",
+            headers={"Authorization": "Bearer feed-secret"},
+        )
+        redirect_handler = _SameOriginRedirectHandler(
+            ("https", "example.com", 443)
+        )
+        for target in (
+            "https://other.example.com/feed.xml",
+            "http://example.com/rss.xml",
+            "http://127.0.0.1/internal",
+            "https://example.com:444/rss.xml",
+        ):
+            with self.subTest(target=target):
+                with self.assertRaises(RSSPaginationError):
+                    redirect_handler.redirect_request(
+                        request, None, 302, "Found", {}, target
+                    )
+
+    def test_same_origin_feed_redirect_keeps_auth(self):
+        request = urllib.request.Request(
+            "https://example.com/rss.xml",
+            headers={"Authorization": "Bearer feed-secret"},
+        )
+        redirect_handler = _SameOriginRedirectHandler(
+            ("https", "example.com", 443)
+        )
+        redirected = redirect_handler.redirect_request(
+            request, None, 302, "Found", {},
+            "https://example.com:443/moved.xml",
+        )
+        self.assertEqual(
+            "Bearer feed-secret", redirected.get_header("Authorization")
+        )
 
 
 if __name__ == "__main__":
