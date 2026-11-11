@@ -159,7 +159,7 @@ Example:
       "name": "Unua Podcast",
       "rss_link": "http://www.unuapodcast.org/feed.rss",
       "path": "~/podcasts/unua_podcast",
-      "https_headers": {
+      "http_headers": {
         "User-Agent": "Mozilla/5.0"
       }
     },
@@ -167,7 +167,7 @@ Example:
       "name": "Dua Podcast",
       "rss_link": "http://www.duapodcast.org/feed.rss",
       "path": "~/podcasts/dua_podcast",
-      "https_headers": {
+      "http_headers": {
         "Authorization": "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ=="
       }
     }
@@ -176,6 +176,21 @@ Example:
 ```
 
 In this example, the Unua Podcast will be download just with the header: `User-Agent: Mozilla/5.0`, and the Dua Podcast with: `User-Agent: podcast-downloader` and `Authorization: Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==`.
+
+
+Security: feed-specific HTTP headers (including `Authorization`, `Cookie`
+and custom headers) are sent to audio files only when their URL has the **same
+origin** (scheme, hostname and port) as the configured RSS feed URL. Downloads
+from external media/CDN origins use the normal `podcast-downloader` User-Agent
+without the configured feed headers. If a same-origin media request redirects
+to another origin, all custom request headers are removed before following
+the redirect. This prevents a podcast feed or a third-party CDN from receiving
+credentials intended for another server.
+
+**Compatibility:** If your media files require custom authentication on a
+different origin, those downloads will no longer receive the RSS credentials.
+This is intentional; use a dedicated, explicitly authorized media authentication
+configuration rather than sharing feed credentials with arbitrary enclosure URLs.
 
 ### Download delay
 
