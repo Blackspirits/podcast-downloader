@@ -1,4 +1,6 @@
 import logging
+import os
+import sys
 import re
 import time
 import urllib.request
@@ -89,28 +91,42 @@ def file_template_to_file_name(name_template: str, entity: RSSEntity) -> str:
     )
 
 
-def limit_file_name(maximum_length: int, file_name: str) -> str:
-    last_dot_index = file_name.rfind(".")
-    if last_dot_index == -1:
-        return file_name[:maximum_length]
+def _file_name_unit_length(value: str) -> int:
+    """Measure a filename in the units used by the target platform."""
+    if sys.platform == "win32":
+        return len(value.encode("utf-16-le")) // 2
+    return len(os.fsencode(value))
 
-    file_name_length = len(file_name)
-    if file_name_length <= maximum_length:
+
+def limit_file_name(maximum_length: int, file_name: str) -> str:
+    """Truncate a basename without splitting Unicode code points or extension."""
+    if type(maximum_length) is not int or maximum_length < 1:
+        raise ValueError("Filename limit must be a positive integer")
+
+    if _file_name_unit_length(file_name) <= maximum_length:
         return file_name
 
-    return (
-        file_name[: maximum_length - file_name_length + last_dot_index]
-        + file_name[last_dot_index:]
-    )
+    last_dot_index = file_name.rfind(".")
+    if last_dot_index == -1:
+        stem, extension = file_name, ""
+    else:
+        stem, extension = file_name[:last_dot_index], file_name[last_dot_index:]
 
+    suffix_length = _file_name_unit_length(extension)
+    if suffix_length > maximum_length:
+        raise ValueError("Filename extension exceeds the configured limit")
 
-def get_next_feed_link(feed: feedparser.FeedParserDict) -> Optional[str]:
-    for link in feed.get("feed", {}).get("links", []):
-        if str(link.get("rel", "")).lower() == "next" and link.get("href"):
-            return link["href"]
-
-    return None
-
+    low, high = 0, len(stem)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if (
+            _file_name_unit_length(stem[:middle]) + suffix_length
+            <= maximum_length
+        ):
+            low = middle
+        else:
+            high = middle - 1
+    return stem[:low] + extension
 
 def _http_origin(url: str):
     """Normalize the scheme, hostname and port for HTTP(S) origin checks."""
