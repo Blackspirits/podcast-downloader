@@ -1,4 +1,6 @@
 import os
+import logging
+import tempfile
 from typing import Callable, Dict, Iterable, List, Tuple
 import urllib
 import argparse
@@ -76,6 +78,55 @@ def _media_request_headers(
     return {"User-Agent": "podcast-downloader"}
 
 
+logger = logging.getLogger(__name__)
+DOWNLOAD_CHUNK_SIZE = 64 * 1024
+
+
+def _save_response_atomically(response, destination_path: str) -> None:
+    """Publish a media file only after its entire response was written."""
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=os.path.dirname(destination_path),
+            prefix=".podcast-downloader-",
+            suffix=".part",
+            delete=False,
+        ) as output:
+            temp_path = output.name
+            bytes_written = 0
+            while True:
+                chunk = response.read(DOWNLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                output.write(chunk)
+                bytes_written += len(chunk)
+
+            if bytes_written == 0:
+                raise IOError("Empty media response")
+
+            headers = getattr(response, "headers", None)
+            declared_size = headers.get("Content-Length") if headers else None
+            if (
+                declared_size is not None
+                and str(declared_size).isdigit()
+                and bytes_written != int(declared_size)
+            ):
+                raise IOError(
+                    "Incomplete media response: received %d of %s bytes"
+                    % (bytes_written, declared_size)
+                )
+
+        os.replace(temp_path, destination_path)
+        temp_path = None
+    finally:
+        if temp_path is not None:
+            try:
+                os.unlink(temp_path)
+            except FileNotFoundError:
+                pass
+
+
 def download_rss_entity_to_path(
     headers: Dict[str, str],
     source_url: str,
@@ -92,8 +143,7 @@ def download_rss_entity_to_path(
         request = urllib.request.Request(rss_entity.link, headers=media_headers)
 
         with _open_media_request(request) as response:
-            with open(path_to_file, "wb") as file:
-                file.write(response.read())
+            _save_response_atomically(response, path_to_file)
 
     except Exception:
         logger.exception(
