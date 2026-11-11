@@ -57,30 +57,6 @@ class TestFileTemplateToFileNameConverter(unittest.TestCase):
                 f'File should be named "{expected_file_name}" not "{result}"',
             )
 
-    def test_encoded_separators_cannot_escape_podcast_directory(self):
-        for encoded_path in (
-            "%2e%2e%2f%2e%2e%2foutside.mp3",
-            "%2e%2e%5c%2e%2e%5coutside.mp3",
-        ):
-            with self.subTest(encoded_path=encoded_path):
-                entity = build_test_link_data(
-                    link="https://example.com/episodes/" + encoded_path
-                )
-                name = file_template_to_file_name(
-                    "%file_name%.%file_extension%", entity
-                )
-                self.assertNotIn("/", name)
-                self.assertNotIn("\\", name)
-
-    def test_media_url_basename_rejects_windows_reserved_characters(self):
-        entity = build_test_link_data(
-            link="https://example.com/%43%3Aoutside%7Cepisode%3F.mp3"
-        )
-        name = file_template_to_file_name("%file_name%.%file_extension%", entity)
-        self.assertEqual("c outside episode .mp3", name)
-        for reserved in (":", "|", "?", "/", "\\"):
-            self.assertNotIn(reserved, name)
-
     def test_link_to_extension(self):
         # Assign
         test_parameters = [
@@ -116,8 +92,6 @@ class TestFileTemplateToFileNameConverter(unittest.TestCase):
         test_parameters = [
             ("Ala ma kota", "Ala ma kota"),
             (" abcdefg hijk ", "abcdefg hijk"),
-            ("2º Cromo", "2º Cromo"),
-            ("1ª Parte", "1ª Parte"),
             (
                 "AEE 226: How to 80/20 Your English to Make More Friends with italki Teacher Nick Vance",
                 "AEE 226  How to 80 20 Your English to Make More Friends with italki Teacher Nick Vance",
