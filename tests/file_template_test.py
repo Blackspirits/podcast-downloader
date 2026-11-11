@@ -72,6 +72,15 @@ class TestFileTemplateToFileNameConverter(unittest.TestCase):
                 self.assertNotIn("/", name)
                 self.assertNotIn("\\", name)
 
+    def test_media_url_basename_rejects_windows_reserved_characters(self):
+        entity = build_test_link_data(
+            link="https://example.com/%43%3Aoutside%7Cepisode%3F.mp3"
+        )
+        name = file_template_to_file_name("%file_name%.%file_extension%", entity)
+        self.assertEqual("c outside episode .mp3", name)
+        for reserved in (":", "|", "?", "/", "\\"):
+            self.assertNotIn(reserved, name)
+
     def test_link_to_extension(self):
         # Assign
         test_parameters = [
