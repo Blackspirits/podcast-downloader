@@ -128,6 +128,14 @@ def limit_file_name(maximum_length: int, file_name: str) -> str:
             high = middle - 1
     return stem[:low] + extension
 
+def get_next_feed_link(feed: feedparser.FeedParserDict) -> Optional[str]:
+    for link in feed.get("feed", {}).get("links", []):
+        if str(link.get("rel", "")).lower() == "next" and link.get("href"):
+            return link["href"]
+
+    return None
+
+
 def _http_origin(url: str):
     """Normalize the scheme, hostname and port for HTTP(S) origin checks."""
     try:
