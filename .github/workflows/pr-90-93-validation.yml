@@ -1,0 +1,57 @@
+name: Existing PRs 90-93 test matrix
+on:
+  push:
+    branches:
+      - test/pr-90-93-validation-20261111
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: PR ${{ matrix.pr }} / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pr: 90
+            sha: 5201fbf4cae4809037e816f717750c6ae73e8683
+            python-version: '3.10'
+          - pr: 90
+            sha: 5201fbf4cae4809037e816f717750c6ae73e8683
+            python-version: '3.14'
+          - pr: 91
+            sha: f1037effa5bb7c73104be297aec6c064f81bd564
+            python-version: '3.10'
+          - pr: 91
+            sha: f1037effa5bb7c73104be297aec6c064f81bd564
+            python-version: '3.14'
+          - pr: 92
+            sha: fe0ceccebd3dfb1b48f180e71c01532103342405
+            python-version: '3.10'
+          - pr: 92
+            sha: fe0ceccebd3dfb1b48f180e71c01532103342405
+            python-version: '3.14'
+          - pr: 93
+            sha: 1883141af6d364a80f9a4634e1c4f0e9472023f2
+            python-version: '3.10'
+          - pr: 93
+            sha: 1883141af6d364a80f9a4634e1c4f0e9472023f2
+            python-version: '3.14'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest pytest-httpserver feedgen
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p "*_test.py"
+      - name: Run E2E tests
+        run: pytest e2e
