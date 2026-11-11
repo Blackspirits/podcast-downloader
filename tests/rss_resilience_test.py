@@ -211,13 +211,14 @@ class RssResilienceTest(unittest.TestCase):
         headers = {"User-Agent": "custom-agent", "Authorization": "Bearer test"}
 
         with patch(
-            "podcast_downloader.rss.urllib.request.urlopen",
+            "podcast_downloader.rss._open_feed_request",
             return_value=Response(xml),
         ) as urlopen:
             feed = load_feed("https://example.com/feed.xml", headers)
 
         self.assertEqual("Test", feed.feed.title)
-        self.assertEqual(FEED_TIMEOUT_SECONDS, urlopen.call_args.kwargs["timeout"])
+        self.assertEqual(FEED_TIMEOUT_SECONDS, urlopen.call_args.args[1])
+        self.assertEqual(("https", "example.com", 443), urlopen.call_args.args[2])
         request = urlopen.call_args.args[0]
         self.assertEqual("custom-agent", request.get_header("User-agent"))
         self.assertEqual("Bearer test", request.get_header("Authorization"))
@@ -229,7 +230,7 @@ class RssResilienceTest(unittest.TestCase):
         )
 
         with patch(
-            "podcast_downloader.rss.urllib.request.urlopen",
+            "podcast_downloader.rss._open_feed_request",
             return_value=Response(xml),
         ) as urlopen:
             feed = load_feed("https://example.com/feed.xml", {})
@@ -254,7 +255,7 @@ class RssResilienceTest(unittest.TestCase):
             headers={"Content-Type": "application/atom+xml"},
         )
         with patch(
-            "podcast_downloader.rss.urllib.request.urlopen",
+            "podcast_downloader.rss._open_feed_request",
             return_value=response,
         ):
             feed = load_feed("https://example.org/redirect.xml")
@@ -279,7 +280,7 @@ class RssResilienceTest(unittest.TestCase):
             headers={"Content-Location": "https://cdn.example.org/podcasts/feed.xml"},
         )
         with patch(
-            "podcast_downloader.rss.urllib.request.urlopen",
+            "podcast_downloader.rss._open_feed_request",
             return_value=response,
         ):
             feed = load_feed("https://example.org/feed.xml")
@@ -304,7 +305,7 @@ class RssResilienceTest(unittest.TestCase):
 
     def test_feed_network_error_becomes_bozo_feed(self):
         with patch(
-            "podcast_downloader.rss.urllib.request.urlopen",
+            "podcast_downloader.rss._open_feed_request",
             side_effect=TimeoutError("timeout"),
         ):
             feed = load_feed("https://example.com/feed.xml")
